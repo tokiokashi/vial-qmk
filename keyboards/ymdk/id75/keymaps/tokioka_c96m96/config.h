@@ -9,9 +9,6 @@
 #define VIAL_UNLOCK_COMBO_ROWS {0, 1}
 #define VIAL_UNLOCK_COMBO_COLS {0, 1}
 
-/* 個人運用ではロック解除の儀式に意味がないため常時アンロック化 */
-#define VIAL_INSECURE
-
 /* レイヤー数（現行 .vil と同じ 10 レイヤー維持） */
 #undef DYNAMIC_KEYMAP_LAYER_COUNT
 #define DYNAMIC_KEYMAP_LAYER_COUNT 10

@@ -22,9 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define VIAL_UNLOCK_COMBO_ROWS {0, 0}
 #define VIAL_UNLOCK_COMBO_COLS {0, 1}
 
-/* 個人運用ではロック解除の儀式に意味がないため常時アンロック化 */
-#define VIAL_INSECURE
-
 /* 6 layers — matches the imported .vil (Onishi base / QWERTY / mouse-nav / Fn-numpad / symbols / gaming) */
 #undef DYNAMIC_KEYMAP_LAYER_COUNT
 #define DYNAMIC_KEYMAP_LAYER_COUNT 6
