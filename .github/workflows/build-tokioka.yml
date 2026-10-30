@@ -1,0 +1,50 @@
+name: Build tokioka firmware
+on:
+  push:
+    branches: [ corne-v4-tokioka ]
+  pull_request:
+    branches: [ corne-v4-tokioka ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.keyboard }}
+    runs-on: ubuntu-latest
+    container: ghcr.io/qmk/qmk_cli@sha256:2dc05fc9f32efebd6b05c2b8676ee548358bc7e151e9dbf4dac6b6eed4513b07
+    strategy:
+      fail-fast: false
+      matrix:
+        keyboard:
+          - crkbd/rev4_0/standard
+          - crkbd/rev4_1/standard
+          - salicylic_acid3/goforty_ortho
+          - ymdk/id75/rp2040
+
+    steps:
+    - name: (actions) Checkout Vial repo
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Build
+      run: |
+        git config --global --add safe.directory $(pwd)
+        qmk compile -kb "${{ matrix.keyboard }}" -km tokioka_c96m96
+
+    - name: Name artifact
+      id: name
+      run: echo "name=$(echo '${{ matrix.keyboard }}' | tr '/' '_')_tokioka_c96m96" >> "$GITHUB_OUTPUT"
+
+    - name: Upload firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.name.outputs.name }}
+        path: |
+          *.uf2
+          *.hex
+          *.bin
+        if-no-files-found: error
