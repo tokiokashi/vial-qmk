@@ -50,3 +50,20 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
   )
 };
+
+// Caps Word: shift only letters; "-" stays "-" (symbols are typed on the symbol layer)
+bool caps_word_press_user(uint16_t keycode) {
+  switch (keycode) {
+    case KC_A ... KC_Z:
+      add_weak_mods(MOD_BIT(KC_LSFT));
+      return true;
+    case KC_1 ... KC_0:
+    case KC_MINS:
+    case KC_UNDS:
+    case KC_BSPC:
+    case KC_DEL:
+      return true;
+    default:
+      return false;
+  }
+}
