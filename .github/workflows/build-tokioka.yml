@@ -18,7 +18,6 @@ jobs:
       fail-fast: false
       matrix:
         keyboard:
-          - crkbd/rev4_0/standard
           - crkbd/rev4_1/standard
           - salicylic_acid3/goforty_ortho
           - ymdk/id75/rp2040
