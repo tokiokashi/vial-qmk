@@ -391,6 +391,24 @@ static void resolve(uint8_t x, uint16_t now) {
     emit(r);
 }
 
+// ! and ? are typed as soon as their pair goes down within the youon gap,
+// when no other key is held. Both keys then give nothing on release.
+static void mark_on_press(uint8_t pos, uint16_t time) {
+    int8_t q = -1;
+    for (uint8_t k = 0; k < NG_KEYS; k++) {
+        if (k == pos || !keys[k].live || !keys[k].down) continue;
+        if (q >= 0 || keys[k].used || !is_mark_pair(pos, k)) return;
+        q = k;
+    }
+    if (q < 0 || start_ago(&keys[q], time) > ng_yoon_gap_ms) return;
+    bool skip[NG_KEYS] = {false};
+    skip[pos] = skip[q] = true;
+    flush_earlier((uint8_t)q, time, skip);
+    emit(pos == P_SL || q == P_SL ? "?" : "!");
+    keys[pos].live = keys[q].live = false;
+    keys[pos].used = keys[q].used = true;
+}
+
 void ng_press(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     if (keys[pos].live) resolve(pos, time);
@@ -400,6 +418,7 @@ void ng_press(uint8_t pos, uint16_t time) {
         keys[q].touched   = true;
         keys[pos].touched = true;
     }
+    mark_on_press(pos, time);
 }
 
 // Whether a key that p may still shift is held: a kana key, or a shift key pressed after p.
