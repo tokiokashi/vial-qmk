@@ -481,3 +481,13 @@ bool ng_can_chord(uint8_t a, uint8_t b) {
     }
     return false;
 }
+
+bool ng_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }
+
+uint16_t ng_down_ms(uint8_t pos, uint16_t time) { return pos < NG_KEYS ? start_ago(&keys[pos], time) : 0; }
+
+void ng_cancel(uint8_t pos) {
+    if (pos >= NG_KEYS) return;
+    keys[pos].live = false;
+    keys[pos].used = true;
+}

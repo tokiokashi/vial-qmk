@@ -44,6 +44,42 @@ void kana_mode_init(void) {
     ng_post_shift = !cfg.prefix_only;
 }
 
+// Tap-hold keys held as kana when a key outside the engine comes, such as Tab
+// for Ctrl+Shift+Tab with hi and ko held, turn into their modifiers. Space,
+// Enter and Backspace often come at the end of a roll, so for them a key must
+// have been held this long.
+#define RETRO_HOLD_MS 150
+
+static keypos_t key_at[NG_KEYS];
+static uint8_t  retro_mods[NG_KEYS];
+
+static uint8_t mod_tap_mods(uint16_t keycode) {
+    uint8_t m = QK_MOD_TAP_GET_MODS(keycode);
+    return (m & 0x10) ? (uint8_t)((m & 0x0F) << 4) : (m & 0x0F);
+}
+
+static bool roll_end_key(uint16_t keycode) {
+    if (IS_QK_LAYER_TAP(keycode)) keycode = QK_LAYER_TAP_GET_TAP_KEYCODE(keycode);
+    if (IS_QK_MOD_TAP(keycode)) keycode = QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+    return keycode == KC_SPC || keycode == KC_ENT || keycode == KC_BSPC;
+}
+
+static void take_held_mods(uint16_t keycode, uint16_t time) {
+    uint8_t mods = 0;
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (retro_mods[p] || !ng_down(p)) continue;
+        uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
+        if (!IS_QK_MOD_TAP(kc)) continue;
+        if (roll_end_key(keycode) && ng_down_ms(p, time) < RETRO_HOLD_MS) continue;
+        ng_cancel(p);
+        retro_mods[p] = mod_tap_mods(kc);
+        mods |= retro_mods[p];
+    }
+    // Kana typed before are sent first, without the modifiers.
+    if (ng_pending()) ng_flush(time);
+    if (mods) register_mods(mods);
+}
+
 bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos) {
     uint16_t time    = record->event.time;
     bool     pressed = record->event.pressed;
@@ -72,10 +108,23 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             return false;
     }
 
+    if (pos >= 0 && !pressed && retro_mods[pos]) {
+        unregister_mods(retro_mods[pos]);
+        retro_mods[pos] = 0;
+        ng_release(pos, time);
+        return false;
+    }
+    // A key the engine took stays with it until released, even if a modifier came on.
+    if (pos >= 0 && !pressed && ng_down(pos)) {
+        ng_release(pos, time);
+        return false;
+    }
+
     if (pos >= 0 && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods())) {
         bool hold = IS_QK_MOD_TAP(keycode) && record->tap.count == 0;
         if (!hold) {
             if (pressed) {
+                key_at[pos] = record->event.key;
                 ng_press(pos, time);
             } else {
                 ng_release(pos, time);
@@ -83,7 +132,11 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             return false;
         }
     }
-    if (pressed && ng_pending()) ng_flush(time);
+    if (pressed && naginata_on()) {
+        take_held_mods(keycode, time);
+    } else if (pressed && ng_pending()) {
+        ng_flush(time);
+    }
     return true;
 }
 
