@@ -460,7 +460,14 @@ bool ng_pending(void) {
 
 bool ng_can_chord(uint8_t a, uint8_t b) {
     if (a >= NG_KEYS || b >= NG_KEYS || a == b) return false;
-    if (is_shift(a) || is_shift(b)) return true;
+    // A shift key is a partner only when it changes the other key: ho and hi
+    // have nothing on the middle-finger shift face, so Ctrl on them still
+    // works with D and K (Onishi A and N).
+    if (is_shift(a) && is_shift(b)) return true;
+    if (is_shift(a) || is_shift(b)) {
+        uint8_t s = is_shift(a) ? a : b, k = is_shift(a) ? b : a;
+        return is_chuu(s) ? shift_face[k] != NULL : daku_face[k] != NULL || handaku_face[k] != NULL;
+    }
     char buf[8];
     for (int d = 0; d <= 2; d++) {
         if (pair_romaji(a, b, d, buf, 0)) return true;
