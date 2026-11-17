@@ -151,6 +151,25 @@ static void vm_word_task(void) {
     vm_word_pending = mod_tap_mods(kc);
 }
 
+// D, K, F and J held alone this long and let go give nothing, so a shift or
+// dakuten key pressed by mistake can be dropped by holding it a while.
+#define LONE_SHIFT_MS 300
+
+static int8_t   lone_pos = -1;
+static uint16_t lone_time;
+
+static bool is_lone_shift(int8_t p) { return p == 12 || p == 13 || p == 16 || p == 17; }
+
+static void lone_track(int8_t pos, bool pressed, uint16_t time) {
+    if (pressed) {
+        lone_pos  = is_lone_shift(pos) && naginata_on() && on_kana_layer() && !any_kana_key_down() ? pos : -1;
+        lone_time = time;
+        return;
+    }
+    if (pos >= 0 && pos == lone_pos && TIMER_DIFF_16(time, lone_time) >= LONE_SHIFT_MS) ng_cancel(pos);
+    if (pos == lone_pos) lone_pos = -1;
+}
+
 // Called for every key event before the engine sees it.
 static void vm_track(int8_t pos, bool pressed, uint16_t time) {
     // The Shift for the first letter of a word ends at the next event.
@@ -236,6 +255,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             return false;
     }
 
+    lone_track(pos, pressed, time);
     vm_track(pos, pressed, time);
 
     // Any other event first settles a waiting release as kana.
