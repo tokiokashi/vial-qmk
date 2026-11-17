@@ -21,14 +21,15 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// "#S": next kana small, "#A": next key an arrow, "#E": IME off, "#J": IME on, "#X": Esc.
+// "#S": next kana small, "#A": next key an arrow or z[ z], "#B": next [ ] as s[ s],
+// "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "#X", "ki", "te", "si", "ri",  "#A", "ta", "su", "ru", "he",
     "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
     "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "me", "ni", "ne", NULL,  NULL, "e",  "yo", "ro", "yu",
+    "#S", "me", "ni", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
     "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
     NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
 };
@@ -108,6 +109,9 @@ typedef struct {
 static ngkey_t keys[NG_KEYS];
 static bool  small_next;
 static bool  arrow_next;
+// The letter put before [ and ] by the key outside the engine: z after Y, s
+// after the middle-finger shift + Y, or 0.
+static char bracket_prefix;
 
 // Y and then H, J, K or L give the romaji that tokioka's own romaji table turns
 // into the arrows, as x and then k, t, n or s do on the Onishi layout.
@@ -159,9 +163,10 @@ static void emit(const char *r) {
     if (r[0] == '#') {
         if (r[1] == 'S') {
             small_next = true;
-        } else if (r[1] == 'A') {
-            small_next = false;
-            arrow_next = true;
+        } else if (r[1] == 'A' || r[1] == 'B') {
+            small_next     = false;
+            arrow_next     = r[1] == 'A';
+            bracket_prefix = r[1] == 'A' ? 'z' : 's';
         } else if (r[1] == 'X') {
             small_next = false;
             ng_tap_esc();
@@ -275,8 +280,9 @@ static void resolve(uint8_t x, uint16_t now) {
     if (!keys[x].live) return;
     keys[x].live = false;
     if (keys[x].used) return;
-    bool arrow = arrow_next;
-    arrow_next = false;
+    bool arrow     = arrow_next;
+    arrow_next     = false;
+    bracket_prefix = 0;
 
     bool    skip[NG_KEYS] = {false};
     uint8_t mods[4];
@@ -581,10 +587,11 @@ void ng_flush(uint16_t time) {
     }
 }
 
-bool ng_take_arrow_prefix(void) {
-    bool a     = arrow_next;
-    arrow_next = false;
-    return a;
+char ng_take_bracket_prefix(void) {
+    char c         = bracket_prefix;
+    bracket_prefix = 0;
+    arrow_next     = false;
+    return c;
 }
 
 bool ng_pending(void) {
