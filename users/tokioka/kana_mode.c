@@ -103,7 +103,55 @@ static void inner_settle(void) {
     ng_release(p, inner_time);
 }
 
+// Tapping V or M and then holding the same key alone gives its Shift, for
+// capitals; the first tap's ko or na is erased. Released, or joined by another
+// key, before VM_HOLD_MS, it is the half-dakuten key as usual, as in ko-pi.
+#define VM_TAP_MS 200
+#define VM_HOLD_MS 200
+
+static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1;
+static uint16_t vm_time;
+
+static bool any_kana_key_down(void) {
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (ng_down(p)) return true;
+    }
+    return false;
+}
+
+// Called for every key event before the engine sees it.
+static void vm_track(int8_t pos, bool pressed, uint16_t time) {
+    if (!pressed) {
+        if (pos == vm_hold) vm_hold = -1;
+        if (pos >= 0 && pos == vm_first) {
+            vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
+            vm_first = -1;
+            vm_time  = time;
+        }
+        return;
+    }
+    bool alone = is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
+    vm_hold    = alone && pos == vm_tap && TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
+    vm_first   = alone ? pos : -1;
+    vm_tap     = -1;
+    vm_time    = time;
+}
+
+static void vm_hold_task(void) {
+    if (vm_hold < 0 || timer_elapsed(vm_time) < VM_HOLD_MS) return;
+    int8_t p = vm_hold;
+    vm_hold  = -1;
+    vm_first = -1;
+    uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
+    if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
+    ng_cancel(p);
+    tap_code(KC_BSPC);
+    retro_mods[p] = mod_tap_mods(kc);
+    register_mods(retro_mods[p]);
+}
+
 void housekeeping_task_user(void) {
+    vm_hold_task();
     if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
     int8_t p = inner_pos, h = inner_holder;
     inner_pos = -1;
@@ -149,6 +197,8 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             }
             return false;
     }
+
+    vm_track(pos, pressed, time);
 
     // Any other event first settles a waiting release as kana.
     if (inner_pos >= 0) inner_settle();
