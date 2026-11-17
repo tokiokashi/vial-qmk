@@ -24,20 +24,19 @@ enum {
 // "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "#X", "ki", "te", "si", "ri",  "sa", "ta", "su", "ru", "he",
-    "e",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "xtu",
-    "ho", "hi", "ha", "ko", "so",  "o",  "na", "to", "ra", "re",
+    "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "xtu",
+    "ho", "hi", "ha", "ko", "so",  NULL, "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
     "#S", "me", "ni", "ne", NULL,  NULL, "e",  "yo", "ro", "yu",
     "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
-    NULL, NULL, "nu", ",",  NULL,  "wo", ".",  "mu", "wa", "/",
+    NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
-// wo is read as the dakuten of o.
 static const char *const daku_face[NG_KEYS] = {
     NULL, "gi", "de", "zi", NULL,  "za", "da", "zu", NULL, "be",
     "ze", "ge", NULL, "ga", "di",  "gu", NULL, NULL, "du", "bu",
-    "bo", "bi", "ba", "go", "zo",  "wo", NULL, "do", NULL, NULL,
+    "bo", "bi", "ba", "go", "zo",  NULL, NULL, "do", NULL, NULL,
 };
 static const char *const handaku_face[NG_KEYS] = {
     NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, "pe",
@@ -49,8 +48,8 @@ static const char *const handaku_face[NG_KEYS] = {
 // lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
     NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
-    "xe",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
-    NULL,  NULL,  NULL,  NULL,  NULL,   "xo",  NULL,  NULL,  "xwa", NULL,
+    "xo",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
+    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  NULL,  NULL,  "xwa", NULL,
 };
 
 // Youon: a generator key with H = ya, I = yo, P = yu.
@@ -72,26 +71,26 @@ typedef struct {
     const char *romaji;
 } gairai_t;
 static const gairai_t gairai[] = {
-    // Vowels follow the faces: a = J, i = K, u = L, e = A or U (shift), o = N, yu = P.
+    // Vowels follow the faces: a = J, i = K, u = L, e = U (shift), o = A, yu = P.
     {MK_HANDAKU, P_E, P_P, "thu"},   {MK_HANDAKU, P_E, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
-    {MK_HANDAKU, P_R, P_A, "she"},   {MK_HANDAKU, P_R, P_U, "she"},
-    {MK_HANDAKU, P_G, P_A, "che"},   {MK_HANDAKU, P_G, P_U, "che"},
-    {MK_HANDAKU, P_SC, P_J, "fa"},   {MK_HANDAKU, P_SC, P_K, "fi"},  {MK_HANDAKU, P_SC, P_A, "fe"},  {MK_HANDAKU, P_SC, P_U, "fe"},
-    {MK_HANDAKU, P_SC, P_N, "fo"},   {MK_HANDAKU, P_SC, P_P, "fyu"},
-    {MK_HANDAKU, P_L, P_K, "wi"},    {MK_HANDAKU, P_L, P_A, "we"},   {MK_HANDAKU, P_L, P_U, "we"},   {MK_HANDAKU, P_L, P_N, "who"},
-    {MK_HANDAKU, P_K, P_A, "ye"},    {MK_HANDAKU, P_K, P_U, "ye"},   {MK_HANDAKU, P_K, P_L, "wi"},
-    {MK_HANDAKU, P_H, P_J, "qa"},    {MK_HANDAKU, P_H, P_K, "qi"},   {MK_HANDAKU, P_H, P_A, "qe"},   {MK_HANDAKU, P_H, P_U, "qe"},
-    {MK_HANDAKU, P_H, P_N, "qo"},    {MK_HANDAKU, P_H, P_L, "kuxwa"}, {MK_HANDAKU, P_H, P_DT, "kuxwa"},
+    {MK_HANDAKU, P_R, P_U, "she"},
+    {MK_HANDAKU, P_G, P_U, "che"},
+    {MK_HANDAKU, P_SC, P_J, "fa"},   {MK_HANDAKU, P_SC, P_K, "fi"},  {MK_HANDAKU, P_SC, P_U, "fe"},
+    {MK_HANDAKU, P_SC, P_A, "fo"},   {MK_HANDAKU, P_SC, P_P, "fyu"},
+    {MK_HANDAKU, P_L, P_K, "wi"},    {MK_HANDAKU, P_L, P_U, "we"},   {MK_HANDAKU, P_L, P_A, "who"},
+    {MK_HANDAKU, P_K, P_U, "ye"},   {MK_HANDAKU, P_K, P_L, "wi"},
+    {MK_HANDAKU, P_H, P_J, "qa"},    {MK_HANDAKU, P_H, P_K, "qi"},   {MK_HANDAKU, P_H, P_U, "qe"},
+    {MK_HANDAKU, P_H, P_A, "qo"},    {MK_HANDAKU, P_H, P_L, "kuxwa"}, {MK_HANDAKU, P_H, P_DT, "kuxwa"},
     // Tsu lives on L with u, so its row takes the dot key.
-    {MK_HANDAKU, P_DT, P_J, "tsa"},  {MK_HANDAKU, P_DT, P_K, "tsi"}, {MK_HANDAKU, P_DT, P_A, "tse"}, {MK_HANDAKU, P_DT, P_U, "tse"},
-    {MK_HANDAKU, P_DT, P_N, "tso"},
-    {MK_DAKU, P_R, P_A, "je"},  {MK_DAKU, P_R, P_U, "je"},
-    {MK_DAKU, P_G, P_A, "dye"}, {MK_DAKU, P_G, P_U, "dye"},
+    {MK_HANDAKU, P_DT, P_J, "tsa"},  {MK_HANDAKU, P_DT, P_K, "tsi"}, {MK_HANDAKU, P_DT, P_U, "tse"},
+    {MK_HANDAKU, P_DT, P_A, "tso"},
+    {MK_DAKU, P_R, P_U, "je"},
+    {MK_DAKU, P_G, P_U, "dye"},
     {MK_DAKU, P_E, P_P, "dhu"}, {MK_DAKU, P_E, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
-    {MK_DAKU, P_L, P_J, "va"},  {MK_DAKU, P_L, P_K, "vi"},  {MK_DAKU, P_L, P_A, "ve"},  {MK_DAKU, P_L, P_U, "ve"},
-    {MK_DAKU, P_L, P_N, "vo"},  {MK_DAKU, P_L, P_P, "vyu"}, {MK_DAKU, P_L, P_SC, "vu"},
-    {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_A, "gwe"}, {MK_DAKU, P_H, P_U, "gwe"},
-    {MK_DAKU, P_H, P_N, "gwo"}, {MK_DAKU, P_H, P_L, "guxwa"}, {MK_DAKU, P_H, P_DT, "guxwa"},
+    {MK_DAKU, P_L, P_J, "va"},  {MK_DAKU, P_L, P_K, "vi"},  {MK_DAKU, P_L, P_U, "ve"},
+    {MK_DAKU, P_L, P_A, "vo"},  {MK_DAKU, P_L, P_P, "vyu"}, {MK_DAKU, P_L, P_SC, "vu"},
+    {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_U, "gwe"},
+    {MK_DAKU, P_H, P_A, "gwo"}, {MK_DAKU, P_H, P_L, "guxwa"}, {MK_DAKU, P_H, P_DT, "guxwa"},
 };
 
 typedef struct {
