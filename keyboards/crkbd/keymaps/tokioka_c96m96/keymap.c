@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include QMK_KEYBOARD_H
+#include "naginata.h"
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   [0] = LAYOUT_split_3x6_3(
@@ -168,12 +169,6 @@ bool oled_task_user(void) {
     return false;
 }
 
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  if (record->event.pressed) {
-    set_keylog(keycode, record);
-  }
-  return true;
-}
 #endif // OLED_ENABLE
 
 // Caps Word: shift only letters; "-" stays "-" (symbols are typed on the symbol layer)
@@ -191,4 +186,121 @@ bool caps_word_press_user(uint16_t keycode) {
     default:
       return false;
   }
+}
+
+/* ---- Naginata-style kana mode (trial) ----------------------------------
+ * hj (KC_LNG1) turns the IME on and goes to the kana layout chosen by NG_SW:
+ * TK on-choku or the Naginata private edition. fg (KC_LNG2) turns it off.
+ * In Naginata mode the alpha keys of layer 0 are read by position, and a
+ * tap-hold key on the bottom row still gives its modifier when held.
+ */
+
+// Same order as customKeycodes in vial.json.
+enum custom_keycodes {
+    NG_SW = QK_KB_0, // switch the kana layout that hj goes to
+    NG_POST,         // switch whether a shift pressed after the kana applies
+};
+
+typedef union {
+    uint32_t raw;
+    struct {
+        bool naginata : 1;
+        bool prefix_only : 1;
+    };
+} user_config_t;
+
+static user_config_t cfg;
+static bool          ime_on = true;
+
+static bool naginata_on(void) { return ime_on && cfg.naginata; }
+
+static bool on_kana_layer(void) { return get_highest_layer(layer_state | default_layer_state) == 0; }
+
+void ng_send_romaji(const char *romaji) { send_string(romaji); }
+
+void ng_ime(bool on) {
+    tap_code(on ? KC_LNG1 : KC_LNG2);
+    ime_on = on;
+}
+
+void eeconfig_init_user(void) {
+    cfg.raw = 0;
+    eeconfig_update_user(cfg.raw);
+}
+
+void keyboard_post_init_user(void) {
+    cfg.raw       = eeconfig_read_user();
+    ng_post_shift = !cfg.prefix_only;
+}
+
+// Alpha keys of the Corne matrix as positions Q..P = 0..9, A..; = 10..19, Z../ = 20..29.
+static int8_t ng_pos(keypos_t k) {
+    if (k.row <= 2 && k.col >= 1 && k.col <= 5) return k.row * 10 + k.col - 1;
+    if (k.row >= 4 && k.row <= 6 && k.col >= 1 && k.col <= 5) return (k.row - 4) * 10 + 10 - k.col;
+    return -1;
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#ifdef OLED_ENABLE
+    if (record->event.pressed) set_keylog(keycode, record);
+#endif
+    uint16_t time    = record->event.time;
+    bool     pressed = record->event.pressed;
+
+    switch (keycode) {
+        case KC_LNG1:
+        case KC_LNG2:
+            if (pressed) {
+                ng_flush(time);
+                ime_on = keycode == KC_LNG1;
+            }
+            return true;
+        case NG_SW:
+            if (pressed) {
+                ng_flush(time);
+                cfg.naginata = !cfg.naginata;
+                eeconfig_update_user(cfg.raw);
+            }
+            return false;
+        case NG_POST:
+            if (pressed) {
+                cfg.prefix_only = !cfg.prefix_only;
+                ng_post_shift   = !cfg.prefix_only;
+                eeconfig_update_user(cfg.raw);
+            }
+            return false;
+    }
+
+    if (naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods())) {
+        int8_t pos  = ng_pos(record->event.key);
+        bool   hold = IS_QK_MOD_TAP(keycode) && record->tap.count == 0;
+        if (pos >= 0 && !hold) {
+            if (pressed) {
+                ng_press(pos, time);
+            } else {
+                ng_release(pos, time);
+            }
+            return false;
+        }
+    }
+    if (pressed && ng_pending()) ng_flush(time);
+    return true;
+}
+
+/* Combo slots follow CorneV4_c96m96.vil:
+ * 0-1 fg/hj IME, 2-5 Caps Word, Caps Lock, ! and ? on the bottom row,
+ * 6-7 thumb macros, 8-9 IME on the QWERTY layer, 10- TK on-choku.
+ */
+bool combo_should_trigger(uint16_t combo_index, combo_t *combo, uint16_t keycode, keyrecord_t *record) {
+    bool kana = naginata_on() && on_kana_layer();
+    switch (combo_index) {
+        case 0 ... 1:
+        case 6 ... 7:
+            return true;
+        case 2 ... 5:
+        case 8 ... 9:
+            return !kana;
+        default:
+            return ime_on && !cfg.naginata;
+    }
 }
