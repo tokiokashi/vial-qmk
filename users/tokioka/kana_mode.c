@@ -104,12 +104,13 @@ static void inner_settle(void) {
 }
 
 // V and M held for English words, decided when the next kana key goes down:
-// - Tapped and pressed again, the key is Shift until released, for capitals.
-//   The first tap's ko or na is erased then. Its half dakuten right after the
-//   tap, such as ko-pa, needs the other hand's key.
-// - Held alone for VM_WORD_MS, only the next key gets Shift and the rest are
-//   lower case, for a capitalized word. A half dakuten chord pressed sooner,
-//   and the continuous shift after it, stay kana.
+// - Held alone for VM_WORD_MS, the key is Shift until released, for capitals.
+//   A half dakuten chord pressed sooner, and the continuous shift after it,
+//   stay kana.
+// - Tapped and pressed again, only the next key gets Shift and the rest are
+//   lower case, for a capitalized word. The first tap's ko or na is erased
+//   then. Its half dakuten right after the tap, such as ko-pa, needs the other
+//   hand's key.
 // Released alone, the key gives its kana, so ko-ko and na-na stay, and the
 // other one of V and M still gives the comma or period.
 #define VM_TAP_MS 200
@@ -131,7 +132,6 @@ static void vm_to_shift(int8_t p) {
     uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
     if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
     ng_cancel(p);
-    tap_code(KC_BSPC);
     retro_mods[p] = mod_tap_mods(kc);
     register_mods(retro_mods[p]);
 }
@@ -140,6 +140,7 @@ static void vm_to_word(int8_t p) {
     uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
     if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
     ng_cancel(p);
+    tap_code(KC_BSPC);
     vm_word       = p;
     vm_word_shift = mod_tap_mods(kc);
     register_mods(vm_word_shift);
@@ -164,9 +165,9 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
     }
     if (pos >= 0 && !is_vm(pos)) {
         if (vm_hold >= 0) {
-            vm_to_shift(vm_hold);
+            vm_to_word(vm_hold);
         } else if (vm_first >= 0 && vm_word < 0 && naginata_on() && TIMER_DIFF_16(time, vm_time) >= VM_WORD_MS) {
-            vm_to_word(vm_first);
+            vm_to_shift(vm_first);
         }
     }
     bool alone = is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
