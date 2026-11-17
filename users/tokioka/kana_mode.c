@@ -103,14 +103,21 @@ static void inner_settle(void) {
     ng_release(p, inner_time);
 }
 
-// Tapping V or M and pressing the same key again gives its Shift for the next
-// kana key pressed while it is held, for capitals; the first tap's ko or na is
-// erased then. Released alone, it gives its kana, so ko-ko and na-na stay, and
-// the other one of V and M still gives the comma or period. Its half dakuten
-// in that spot, such as ko-pa, needs the other hand's key.
+// V and M held for English words, decided when the next kana key goes down:
+// - Tapped and pressed again, the key is Shift until released, for capitals.
+//   The first tap's ko or na is erased then. Its half dakuten right after the
+//   tap, such as ko-pa, needs the other hand's key.
+// - Held alone for VM_WORD_MS, only the next key gets Shift and the rest are
+//   lower case, for a capitalized word. A half dakuten chord pressed sooner,
+//   and the continuous shift after it, stay kana.
+// Released alone, the key gives its kana, so ko-ko and na-na stay, and the
+// other one of V and M still gives the comma or period.
 #define VM_TAP_MS 200
+#define VM_WORD_MS 150
 
-static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1;
+static bool     passed[NG_KEYS];
+static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1, vm_word = -1;
+static uint8_t  vm_word_shift;
 static uint16_t vm_time;
 
 static bool any_kana_key_down(void) {
@@ -129,10 +136,25 @@ static void vm_to_shift(int8_t p) {
     register_mods(retro_mods[p]);
 }
 
+static void vm_to_word(int8_t p) {
+    uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
+    if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
+    ng_cancel(p);
+    vm_word       = p;
+    vm_word_shift = mod_tap_mods(kc);
+    register_mods(vm_word_shift);
+}
+
 // Called for every key event before the engine sees it.
 static void vm_track(int8_t pos, bool pressed, uint16_t time) {
+    // The Shift for the first letter of a word ends at the next event.
+    if (vm_word_shift) {
+        unregister_mods(vm_word_shift);
+        vm_word_shift = 0;
+    }
     if (!pressed) {
         if (pos == vm_hold) vm_hold = -1;
+        if (pos == vm_word) vm_word = -1;
         if (pos >= 0 && pos == vm_first) {
             vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
             vm_first = -1;
@@ -140,7 +162,13 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         }
         return;
     }
-    if (vm_hold >= 0 && pos >= 0 && !is_vm(pos)) vm_to_shift(vm_hold);
+    if (pos >= 0 && !is_vm(pos)) {
+        if (vm_hold >= 0) {
+            vm_to_shift(vm_hold);
+        } else if (vm_first >= 0 && vm_word < 0 && naginata_on() && TIMER_DIFF_16(time, vm_time) >= VM_WORD_MS) {
+            vm_to_word(vm_first);
+        }
+    }
     bool alone = is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
     vm_hold    = alone && pos == vm_tap && TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
     vm_first   = alone ? pos : -1;
@@ -200,6 +228,12 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     // Any other event first settles a waiting release as kana.
     if (inner_pos >= 0) inner_settle();
 
+    // A key sent as it is, such as a letter typed with Shift, is released the
+    // same way even if the Shift is gone by then.
+    if (pos >= 0 && !pressed && passed[pos]) {
+        passed[pos] = false;
+        return true;
+    }
     if (pos >= 0 && !pressed && retro_mods[pos]) {
         unregister_mods(retro_mods[pos]);
         retro_mods[pos] = 0;
@@ -219,7 +253,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         return false;
     }
 
-    if (pos >= 0 && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods())) {
+    if (pos >= 0 && naginata_on() && on_kana_layer() && vm_word < 0 && !(get_mods() | get_oneshot_mods())) {
         bool hold = IS_QK_MOD_TAP(keycode) && record->tap.count == 0;
         if (!hold) {
             if (pressed) {
@@ -231,11 +265,12 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             return false;
         }
     }
-    if (pressed && naginata_on()) {
+    if (pressed && naginata_on() && vm_word < 0) {
         take_held_mods(time);
     } else if (pressed && ng_pending()) {
         ng_flush(time);
     }
+    if (pos >= 0 && pressed) passed[pos] = true;
     return true;
 }
 
