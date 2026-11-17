@@ -491,3 +491,10 @@ void ng_cancel(uint8_t pos) {
     keys[pos].live = false;
     keys[pos].used = true;
 }
+
+void ng_forget(uint8_t pos) {
+    if (pos >= NG_KEYS) return;
+    keys[pos].live = false;
+    keys[pos].used = false;
+    keys[pos].down = false;
+}

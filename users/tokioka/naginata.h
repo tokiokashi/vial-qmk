@@ -15,6 +15,8 @@ bool     ng_down(uint8_t pos);
 uint16_t ng_down_ms(uint8_t pos, uint16_t time);
 // Drop a held key from the engine, so it gives no kana when released.
 void ng_cancel(uint8_t pos);
+// Drop a key that is already up, so it gives no kana.
+void ng_forget(uint8_t pos);
 // Whether keys at positions a and b can make kana together.
 bool ng_can_chord(uint8_t a, uint8_t b);
 extern uint8_t ng_yoon_gap_ms; // a youon pair pressed within this many ms is a chord
