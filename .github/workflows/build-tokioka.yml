@@ -1,9 +1,9 @@
 name: Build tokioka firmware
 on:
   push:
-    branches: [ corne-v4-tokioka, tokiokashi ]
+    branches: [ tokiokashi ]
   pull_request:
-    branches: [ corne-v4-tokioka, tokiokashi ]
+    branches: [ tokiokashi ]
   workflow_dispatch:
 
 permissions:
