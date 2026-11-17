@@ -190,20 +190,26 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     return true;
 }
 
-// With Ctrl, Alt or GUI already on when V or M goes down, that key keeps its
-// Shift for shortcuts. Decided at the press, so its release matches.
-static bool vm_keep_shift[2];
+// V, M, comma and period are tap-hold keys in the .vil (Shift, Alt, Ctrl). While
+// typing Naginata they are plain kana keys on layer 0, so a key held inside a
+// chord never becomes its modifier, and comma and period reach the engine at
+// once for ! and ?. Held, they still become modifiers through take_held_mods
+// and the inner-key rule. With Ctrl, Alt or GUI already on when one goes down,
+// it keeps its tap-hold for shortcuts, decided at the press so its release
+// matches.
+#define NG_POS_CM 27
+#define NG_POS_DT 28
+static bool is_plain_pos(int8_t p) { return is_vm(p) || p == NG_POS_CM || p == NG_POS_DT; }
+static bool keep_tap_hold[NG_KEYS];
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         int8_t pos = ng_pos(record->event.key);
-        if (pos == NG_POS_V || pos == NG_POS_M) vm_keep_shift[pos == NG_POS_M] = get_mods() & MOD_MASK_CAG;
+        if (is_plain_pos(pos)) keep_tap_hold[pos] = get_mods() & MOD_MASK_CAG;
     }
     return true;
 }
 
-// V and M are tap-hold Shift keys in the .vil. While typing Naginata they are
-// plain kana keys on layer 0, so a key held inside a chord never becomes Shift.
 // The rest follows the default keymap_key_to_keycode; no board here has
 // encoder or DIP switch maps.
 uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
@@ -215,7 +221,7 @@ uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
     uint16_t keycode = keycode_at_keymap_location(layer, key.row, key.col);
     if (layer == 0 && naginata_on() && IS_QK_MOD_TAP(keycode)) {
         int8_t pos = ng_pos(key);
-        if ((pos == NG_POS_V && !vm_keep_shift[0]) || (pos == NG_POS_M && !vm_keep_shift[1])) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+        if (is_plain_pos(pos) && !keep_tap_hold[pos]) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
     }
     return keycode;
 }
