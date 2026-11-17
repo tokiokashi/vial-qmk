@@ -20,3 +20,6 @@ REPEAT_KEY_ENABLE   = yes   # Alt Repeat Key tab in Vial
 
 OLED_ENABLE         = no
 LAYER_LOCK_ENABLE   = no
+
+# Kana mode (users/tokioka)
+USER_NAME := tokioka

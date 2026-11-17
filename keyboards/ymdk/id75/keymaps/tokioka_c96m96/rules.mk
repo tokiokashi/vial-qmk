@@ -10,3 +10,6 @@ MOUSEKEY_ENABLE     = yes
 EXTRAKEY_ENABLE     = yes
 CAPS_WORD_ENABLE    = yes
 QMK_SETTINGS        = yes
+
+# Kana mode (users/tokioka)
+USER_NAME := tokioka

@@ -12,3 +12,6 @@ NKRO_ENABLE         = yes
 MAGIC_ENABLE        = yes
 GRAVE_ESC_ENABLE    = yes
 QMK_SETTINGS        = yes
+
+# Kana mode (users/tokioka)
+USER_NAME := tokioka

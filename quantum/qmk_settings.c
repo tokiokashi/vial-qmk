@@ -332,8 +332,17 @@ bool get_auto_shift_no_auto_repeat(uint16_t keycode, keyrecord_t *record) {
     return QS_auto_shift_no_auto_repeat;
 }
 
+// Returns 0 or 1 to decide, or -1 to leave it to the chordal hold setting.
+__attribute__((weak)) int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t* tap_hold_record,
+                                                  uint16_t other_keycode, keyrecord_t* other_record) {
+    return -1;
+}
+
 bool get_chordal_hold(uint16_t tap_hold_keycode, keyrecord_t* tap_hold_record,
                       uint16_t other_keycode, keyrecord_t* other_record) {
+    int8_t user = qs_chordal_hold_user(tap_hold_keycode, tap_hold_record, other_keycode, other_record);
+    if (user >= 0)
+        return user;
     if (QS_tapping_chordal_hold)
         return get_chordal_hold_default(tap_hold_record, other_record);
     return true;

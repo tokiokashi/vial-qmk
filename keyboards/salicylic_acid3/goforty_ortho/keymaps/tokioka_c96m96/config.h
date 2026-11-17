@@ -23,3 +23,6 @@
 #define WEAR_LEVELING_LOGICAL_SIZE  8192
 
 #define TAPPING_TERM 180
+
+/* Lets the keymap turn combos off by mode (see combo_should_trigger). */
+#define COMBO_SHOULD_TRIGGER

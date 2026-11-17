@@ -15,6 +15,7 @@
  */
 
 #include QMK_KEYBOARD_H
+#include "kana_mode.h"
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -66,4 +67,39 @@ bool caps_word_press_user(uint16_t keycode) {
     default:
       return false;
   }
+}
+
+/* Kana mode (TK on-choku / Naginata trial) lives in users/tokioka. */
+
+void keyboard_post_init_user(void) { kana_mode_init(); }
+
+// Alpha keys of the ID75 matrix as positions Q..P = 0..9, A..; = 10..19, Z../ = 20..29.
+int8_t ng_pos(keypos_t k) {
+    if (k.row < 1 || k.row > 3) return -1;
+    if (k.col >= 1 && k.col <= 5) return (k.row - 1) * 10 + k.col - 1;
+    if (k.col >= 9 && k.col <= 13) return (k.row - 1) * 10 + 5 + k.col - 9;
+    return -1;
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    return kana_mode_process_record(keycode, record, ng_pos(record->event.key));
+}
+
+/* Combo slots follow ID75_c96m96.vil:
+ * 0-1 fg/hj IME, 2-5 Caps Word, Caps Lock, ! and ? on the bottom row,
+ * 6-7 thumb macros, 8-9 IME on the QWERTY layer, 11 volume, 10 and 12- TK on-choku.
+ */
+/* In Naginata mode the engine reads fg and hj itself, so that hj inside a
+ * chord such as R+H+J (zya) is not taken as IME on. */
+bool combo_should_trigger(uint16_t combo_index, combo_t *combo, uint16_t keycode, keyrecord_t *record) {
+    switch (combo_index) {
+        case 6 ... 7:
+        case 11:
+            return kana_mode_combo_allowed(COMBO_ALWAYS);
+        case 0 ... 5:
+        case 8 ... 9:
+            return kana_mode_combo_allowed(COMBO_NOT_NAGINATA);
+        default:
+            return kana_mode_combo_allowed(COMBO_ONCHOKU);
+    }
 }
