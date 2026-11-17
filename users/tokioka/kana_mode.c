@@ -114,7 +114,14 @@ static void inner_settle(void) {
 // and M. Released alone sooner, the key gives its kana, so ko-ko and na-na
 // stay; released alone later, it gives nothing.
 #define VM_TAP_MS 200
-#define VM_WORD_MS 150
+// The hold time follows the tapping term set in Vial, so a V or M hold matches
+// the other tap-hold keys.
+#ifdef QMK_SETTINGS
+#    include "qmk_settings.h"
+#    define VM_WORD_MS (QS.tapping_term)
+#else
+#    define VM_WORD_MS TAPPING_TERM
+#endif
 
 static bool     passed[NG_KEYS];
 static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1, vm_word = -1;
