@@ -310,12 +310,16 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     } else if (pressed && ng_pending()) {
         ng_flush(time);
     }
-    // Y and then [ or ] give z[ and z], the double corner brackets in the romaji
-    // table; the middle-finger shift + Y gives s[ and s], the lenticular ones.
-    // Another typed key ends the prefix; a layer key pressed to reach [ does not.
+    // Entries of the romaji table for keys from other layers:
+    // - Y and then [ or ] give z[ and z], the double corner brackets, and the
+    //   middle-finger shift + Y gives s[ and s], the lenticular ones
+    // - Y and then a digit gives m and the digit, the circled number
+    // Another typed key ends the prefix; a layer key pressed to reach them does not.
     if (pressed && IS_BASIC_KEYCODE(keycode) && !IS_MODIFIER_KEYCODE(keycode)) {
         char c = ng_take_bracket_prefix();
-        if (c && naginata_on() && !(get_mods() & MOD_MASK_SHIFT) && (keycode == KC_LBRC || keycode == KC_RBRC)) {
+        if (c == 'z' && keycode >= KC_1 && keycode <= KC_0) c = 'm';
+        else if (keycode != KC_LBRC && keycode != KC_RBRC) c = 0;
+        if (c && naginata_on() && !(get_mods() & MOD_MASK_SHIFT)) {
             const char s[2] = {c, 0};
             send_string(s);
         }

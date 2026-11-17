@@ -21,7 +21,8 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// "#S": next kana small, "#A": next key an arrow or z[ z], "#B": next [ ] as s[ s],
+// "#S": next kana small, "#A": next key an arrow, z[ z] or a circled digit,
+// "#B": next [ ] as s[ s],
 // "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "#X", "ki", "te", "si", "ri",  "#A", "ta", "su", "ru", "he",
