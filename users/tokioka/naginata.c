@@ -469,15 +469,17 @@ void ng_flush(uint16_t time) {
     for (;;) {
         int first = -1;
         for (uint8_t p = 0; p < NG_KEYS; p++) {
-            if (!keys[p].live) continue;
+            // A held shift is left as a shift, not typed as its own kana.
+            if (!keys[p].live || (keys[p].down && is_shift(p))) continue;
             if (first < 0 || pressed_before(p, (uint8_t)first, time)) first = p;
         }
         if (first < 0) break;
         resolve((uint8_t)first, time);
     }
     for (uint8_t p = 0; p < NG_KEYS; p++) {
-        // Held keys are finished; their release must not output again.
-        keys[p].live = false;
+        // Held keys are finished; their release must not output again. A held
+        // shift stays a shift, so Backspace in a continuous shift keeps it on.
+        keys[p].live = keys[p].down && is_shift(p);
         keys[p].used = keys[p].down;
     }
 }
