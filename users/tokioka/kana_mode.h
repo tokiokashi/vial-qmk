@@ -7,6 +7,8 @@
 enum kana_keycodes {
     NG_SW = QK_KB_0, // switch the kana layout that hj goes to
     NG_POST,         // switch whether a shift pressed after the kana applies
+    NG_ONCHOKU,      // make hj go to TK on-choku, for a tap dance or a layer
+    NG_NAGINATA,     // make hj go to Naginata
 };
 
 // How a Vial combo slot behaves by mode.

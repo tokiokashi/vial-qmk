@@ -133,9 +133,11 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             }
             return true;
         case NG_SW:
+        case NG_ONCHOKU:
+        case NG_NAGINATA:
             if (pressed) {
                 ng_flush(time);
-                cfg.naginata = !cfg.naginata;
+                cfg.naginata = keycode == NG_SW ? !cfg.naginata : keycode == NG_NAGINATA;
                 eeconfig_update_user(cfg.raw);
             }
             return false;
