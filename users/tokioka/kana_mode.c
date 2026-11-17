@@ -103,16 +103,12 @@ static void inner_settle(void) {
     ng_release(p, inner_time);
 }
 
-// V and M held for English words:
-// - Held alone for VM_WORD_MS before the next kana key, the key is Shift
-//   until released, for capitals. The other one of V and M is a letter then.
-// - Tapped and then held alone for VM_WORD_MS, the first tap's ko or na is
-//   erased at once, the next key gets Shift and the rest are lower case, for a
-//   capitalized word.
-// A key pressed sooner makes kana as usual: a half dakuten chord and the
-// continuous shift after it, and the comma or period with the other one of V
-// and M. Released alone sooner, the key gives its kana, so ko-ko and na-na
-// stay; released alone later, it gives nothing.
+// V or M tapped and then held alone for VM_WORD_MS: the first tap's ko or na
+// is erased at once and the key is Shift until released, for capitals. The
+// other one of V and M is a letter then.
+// Otherwise V and M make kana as usual: a half dakuten chord and the
+// continuous shift after it, the comma or period with the other one of V and
+// M, and their own kana when tapped alone.
 #define VM_TAP_MS 200
 // The hold time follows the tapping term set in Vial, so a V or M hold matches
 // the other tap-hold keys. The lone D, K, F and J hold below uses it too.
@@ -125,7 +121,6 @@ static void inner_settle(void) {
 
 static bool     passed[NG_KEYS];
 static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1, vm_word = -1;
-static uint8_t  vm_word_pending, vm_word_shift;
 static uint16_t vm_time;
 
 static bool any_kana_key_down(void) {
@@ -133,14 +128,6 @@ static bool any_kana_key_down(void) {
         if (ng_down(p)) return true;
     }
     return false;
-}
-
-static void vm_to_shift(int8_t p) {
-    uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
-    if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
-    ng_cancel(p);
-    retro_mods[p] = mod_tap_mods(kc);
-    register_mods(retro_mods[p]);
 }
 
 // Runs from the housekeeping task, so the kana is erased while the key is
@@ -154,18 +141,19 @@ static void vm_word_task(void) {
     if (!ng_down(p) || !IS_QK_MOD_TAP(kc) || !naginata_on()) return;
     ng_cancel(p);
     tap_code(KC_BSPC);
-    vm_word         = p;
-    vm_word_pending = mod_tap_mods(kc);
+    vm_word       = p;
+    retro_mods[p] = mod_tap_mods(kc);
+    register_mods(retro_mods[p]);
 }
 
-// D, K, F and J held alone for the tapping term and let go give nothing, so a
-// shift or dakuten key pressed by mistake can be dropped by holding it a while.
+// D, K, F, J, V and M held alone for the tapping term and let go give nothing,
+// so a shift key pressed by mistake can be dropped by holding it a while.
 #define LONE_SHIFT_MS VM_WORD_MS
 
 static int8_t   lone_pos = -1;
 static uint16_t lone_time;
 
-static bool is_lone_shift(int8_t p) { return p == 12 || p == 13 || p == 16 || p == 17; }
+static bool is_lone_shift(int8_t p) { return p == 12 || p == 13 || p == 16 || p == 17 || is_vm(p); }
 
 static void lone_track(int8_t pos, bool pressed, uint16_t time) {
     if (pressed) {
@@ -179,33 +167,15 @@ static void lone_track(int8_t pos, bool pressed, uint16_t time) {
 
 // Called for every key event before the engine sees it.
 static void vm_track(int8_t pos, bool pressed, uint16_t time) {
-    // The Shift for the first letter of a word ends at the next event.
-    if (vm_word_shift) {
-        unregister_mods(vm_word_shift);
-        vm_word_shift = 0;
-    }
     if (!pressed) {
         if (pos == vm_hold) vm_hold = -1;
-        if (pos == vm_word) {
-            vm_word         = -1;
-            vm_word_pending = 0;
-        }
+        if (pos == vm_word) vm_word = -1;
         if (pos >= 0 && pos == vm_first) {
-            // Held alone past VM_WORD_MS, it was waiting for a capital.
-            if (TIMER_DIFF_16(time, vm_time) >= VM_WORD_MS) ng_cancel(pos);
             vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
             vm_first = -1;
             vm_time  = time;
         }
         return;
-    }
-    if (vm_word_pending && pos >= 0) {
-        vm_word_shift   = vm_word_pending;
-        vm_word_pending = 0;
-        register_mods(vm_word_shift);
-    }
-    if (pos >= 0 && vm_hold < 0 && vm_first >= 0 && vm_word < 0 && naginata_on() && TIMER_DIFF_16(time, vm_time) >= VM_WORD_MS) {
-        vm_to_shift(vm_first);
     }
     bool alone = is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
     vm_hold    = alone && pos == vm_tap && TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
