@@ -28,6 +28,8 @@ void ng_ime(bool on) {
     ime_on = on;
 }
 
+void ng_tap_esc(void) { tap_code(KC_ESC); }
+
 void eeconfig_init_user(void) {
     cfg.raw = 0;
     eeconfig_update_user(cfg.raw);

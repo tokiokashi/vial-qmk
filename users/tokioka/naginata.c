@@ -18,7 +18,7 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// "#S": next kana small, "#E": IME off, "#J": IME on.
+// "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "ro", "ki", "te", "si", "ri",  "sa", "ta", "su", "ru", "he",
     "e",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "xtu",
@@ -42,9 +42,10 @@ static const char *const handaku_face[NG_KEYS] = {
 };
 
 // Small kana, for the key after the middle-finger shift + Q.
+// lka and lke are entries of tokioka's own romaji table. W gives Esc.
 static const char *const small_face[NG_KEYS] = {
-    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
-    "xe",  NULL,  NULL,  NULL,  NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
+    NULL,  "#X",  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
+    "xe",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
     NULL,  NULL,  NULL,  NULL,  NULL,   "xo",  NULL,  NULL,  "xwa", NULL,
 };
 
@@ -135,6 +136,9 @@ static void emit(const char *r) {
     if (r[0] == '#') {
         if (r[1] == 'S') {
             small_next = true;
+        } else if (r[1] == 'X') {
+            small_next = false;
+            ng_tap_esc();
         } else {
             small_next = false;
             ng_ime(r[1] == 'J');

@@ -21,3 +21,4 @@ bool ng_pending(void);
 // Provided by the caller.
 void ng_send_romaji(const char *romaji);
 void ng_ime(bool on);
+void ng_tap_esc(void);
