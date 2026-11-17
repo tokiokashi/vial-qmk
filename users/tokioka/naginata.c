@@ -134,6 +134,15 @@ static bool covers(uint8_t b, uint8_t a, uint16_t now) {
     return (uint32_t)overlap(a, b, now) * 100 >= (uint32_t)ng_overlap_pct * duration(a, now);
 }
 
+// F and J pressed together as the half dakuten, with x's press covering both.
+// A chord such as F+J+X+I for pyo has four keys and is hard to hold neatly, so
+// the pair may also lie inside x's press instead of covering it.
+static bool handaku_inside(uint8_t x, uint16_t now) {
+    if (x == P_F || x == P_J || !keys[P_F].live || !keys[P_J].live) return false;
+    if (!covers(P_F, P_J, now) && !covers(P_J, P_F, now)) return false;
+    return covers(x, P_F, now) && covers(x, P_J, now);
+}
+
 static bool pressed_before(uint8_t a, uint8_t b, uint16_t now) { return start_ago(&keys[a], now) >= start_ago(&keys[b], now); }
 
 static void emit(const char *r) {
@@ -247,7 +256,7 @@ static void resolve(uint8_t x, uint16_t now) {
     bool    chuu = false;
     for (uint8_t s = 0; s < NG_KEYS; s++) {
         if (!is_shift(s) || s == x || !keys[s].live) continue;
-        if (!covers(s, x, now)) continue;
+        if (!covers(s, x, now) && !(is_daku(s) && handaku_inside(x, now))) continue;
         if (!ng_post_shift && !is_shift(x) && !pressed_before(s, x, now)) continue;
         mods[nmods++] = s;
         if (is_daku(s)) daku++;
