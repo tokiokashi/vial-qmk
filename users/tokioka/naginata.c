@@ -457,31 +457,64 @@ static void settle(uint16_t now) {
     }
 }
 
-// A shift key tapped inside the press of a held kana key, while no other key
-// is held, shifts that kana at once, as Kikyo did: holding u (L) and tapping
-// D then F gives tsu then du. The kana key then gives nothing on release.
+static bool in_gairai(const gairai_t *g, uint8_t p);
+
+// A shift key tapped inside the press of a held kana key, while no other kana
+// key is held, shifts that kana at once, as Kikyo did: holding u (L) and tapping
+// D then F gives tsu then du, also when D and F roll. The kana key then gives
+// nothing on release.
 static bool tap_inside_kana(uint8_t pos, uint16_t now) {
     if (!is_shift(pos) || !keys[pos].live || keys[pos].used) return false;
     int k = -1;
     for (uint8_t p = 0; p < NG_KEYS; p++) {
-        if (p == pos || !keys[p].down) continue;
-        if (k >= 0 || is_shift(p) || p == P_Q) return false;
+        if (p == pos || !keys[p].down || is_shift(p)) continue;
+        if (k >= 0 || p == P_Q) return false;
         k = p;
     }
     if (k < 0 || !keys[k].live || (keys[k].used && !keys[k].anchor)) return false;
-    if (start_ago(&keys[k], now) <= start_ago(&keys[pos], now)) return false;
-    int         daku = is_daku(pos) ? 1 : is_handaku(pos) ? 2 : 0;
-    const char *r    = single((uint8_t)k, daku, is_chuu(pos));
-    if (!r) return false;
+    uint16_t sk = start_ago(&keys[k], now);
+    if (sk <= start_ago(&keys[pos], now)) return false;
+    // Taps are the shift keys pressed inside k that are still to be decided.
+    bool tap[NG_KEYS] = {false};
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (!is_shift(p) || !keys[p].live || keys[p].used) continue;
+        if (start_ago(&keys[p], now) < sk) {
+            tap[p] = true;
+        } else if (keys[p].down) {
+            // A shift held from before k already shifts it.
+            return false;
+        }
+    }
+    // A gairaion chord, such as M inside the fu key with J held, is left alone.
+    for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
+        const gairai_t *g = &gairai[i];
+        if (!in_gairai(g, (uint8_t)k) || !in_gairai(g, pos)) continue;
+        for (uint8_t p = 0; p < NG_KEYS; p++) {
+            if (tap[p] && p != pos && in_gairai(g, p)) return false;
+        }
+    }
     bool skip[NG_KEYS] = {false};
-    skip[k] = skip[pos] = true;
+    skip[k] = true;
+    for (uint8_t p = 0; p < NG_KEYS; p++) skip[p] = skip[p] || tap[p];
     flush_earlier((uint8_t)k, now, skip);
-    keys[pos].live = false;
-    keys[pos].used = true;
+    // Each tap shifts k in press order, pos and the taps before it.
+    for (;;) {
+        int first = -1;
+        for (uint8_t p = 0; p < NG_KEYS; p++) {
+            if (!tap[p] || start_ago(&keys[p], now) < start_ago(&keys[pos], now)) continue;
+            if (first < 0 || pressed_before(p, (uint8_t)first, now)) first = p;
+        }
+        if (first < 0) break;
+        uint8_t     t = (uint8_t)first;
+        const char *r = single((uint8_t)k, is_daku(t) ? 1 : is_handaku(t) ? 2 : 0, is_chuu(t));
+        tap[t]         = false;
+        keys[t].live   = false;
+        keys[t].used   = true;
+        if (r) emit(r);
+    }
     keys[k].used   = true;
     keys[k].anchor = true;
     small_next     = false;
-    emit(r);
     return true;
 }
 
