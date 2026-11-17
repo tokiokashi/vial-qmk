@@ -106,9 +106,9 @@ static void inner_settle(void) {
 // V or M tapped and then held alone for VM_WORD_MS: the first tap's ko or na
 // is erased at once and the key is Shift until released, for capitals. The
 // other one of V and M is a letter then.
-// Otherwise V and M make kana as usual, however long they are held: a half
-// dakuten chord and the continuous shift after it, the comma or period with
-// the other one of V and M, and their own kana when released alone.
+// Otherwise V and M make kana as usual: a half dakuten chord and the
+// continuous shift after it, the comma or period with the other one of V and
+// M, and their own kana when tapped alone.
 #define VM_TAP_MS 200
 // The hold time follows the tapping term set in Vial, so a V or M hold matches
 // the other tap-hold keys. The lone D, K, F and J hold below uses it too.
@@ -146,14 +146,14 @@ static void vm_word_task(void) {
     register_mods(retro_mods[p]);
 }
 
-// D, K, F and J held alone for the tapping term and let go give nothing, so a
-// shift or dakuten key pressed by mistake can be dropped by holding it a while.
+// D, K, F, J, V and M held alone for the tapping term and let go give nothing,
+// so a shift key pressed by mistake can be dropped by holding it a while.
 #define LONE_SHIFT_MS VM_WORD_MS
 
 static int8_t   lone_pos = -1;
 static uint16_t lone_time;
 
-static bool is_lone_shift(int8_t p) { return p == 12 || p == 13 || p == 16 || p == 17; }
+static bool is_lone_shift(int8_t p) { return p == 12 || p == 13 || p == 16 || p == 17 || is_vm(p); }
 
 static void lone_track(int8_t pos, bool pressed, uint16_t time) {
     if (pressed) {
