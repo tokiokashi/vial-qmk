@@ -58,6 +58,39 @@ static const gen_t gens[] = {
     {P_S, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_E, "ny", NULL, NULL},
 };
 
+// Gairaion: a marker, a generator key and a vowel key pressed together.
+// The marker is Q (where the half-dakuten V/M used to be) or a dakuten key.
+// Positions follow the Kikyo definition of the private edition.
+enum { MK_Q, MK_DAKU };
+typedef struct {
+    uint8_t     marker, gen, vowel;
+    const char *romaji;
+} gairai_t;
+static const gairai_t gairai[] = {
+    {MK_Q, P_E, P_P, "thu"},   {MK_Q, P_E, P_K, "thi"},  {MK_Q, P_CM, P_L, "twu"},
+    {MK_Q, P_R, P_Y, "she"},   {MK_Q, P_R, P_O, "she"},  {MK_Q, P_R, P_A, "she"},
+    {MK_Q, P_G, P_Y, "che"},   {MK_Q, P_G, P_O, "che"},
+    {MK_Q, P_DT, P_Y, "fe"},   {MK_Q, P_DT, P_U, "fo"},  {MK_Q, P_DT, P_O, "fe"},  {MK_Q, P_DT, P_P, "fyu"},
+    {MK_Q, P_DT, P_A, "fe"},   {MK_Q, P_DT, P_J, "fa"},  {MK_Q, P_DT, P_K, "fi"},  {MK_Q, P_DT, P_N, "fo"},
+    {MK_Q, P_L, P_Y, "we"},    {MK_Q, P_L, P_U, "who"},  {MK_Q, P_L, P_O, "we"},   {MK_Q, P_L, P_A, "we"},
+    {MK_Q, P_L, P_K, "wi"},    {MK_Q, P_L, P_N, "who"},
+    {MK_Q, P_K, P_Y, "ye"},    {MK_Q, P_K, P_O, "ye"},   {MK_Q, P_K, P_A, "ye"},   {MK_Q, P_K, P_L, "wi"},
+    {MK_Q, P_H, P_Y, "qe"},    {MK_Q, P_H, P_U, "qo"},   {MK_Q, P_H, P_O, "qe"},   {MK_Q, P_H, P_A, "qe"},
+    {MK_Q, P_H, P_J, "qa"},    {MK_Q, P_H, P_K, "qi"},   {MK_Q, P_H, P_L, "kuxwa"}, {MK_Q, P_H, P_N, "qo"},
+    {MK_Q, P_H, P_DT, "kuxwa"},
+    {MK_Q, P_SC, P_Y, "tse"},  {MK_Q, P_SC, P_U, "tso"}, {MK_Q, P_SC, P_O, "tse"}, {MK_Q, P_SC, P_A, "tse"},
+    {MK_Q, P_SC, P_J, "tsa"},  {MK_Q, P_SC, P_K, "tsi"}, {MK_Q, P_SC, P_N, "tso"},
+    {MK_DAKU, P_R, P_Y, "je"}, {MK_DAKU, P_R, P_O, "je"}, {MK_DAKU, P_R, P_A, "je"},
+    {MK_DAKU, P_G, P_Y, "dye"}, {MK_DAKU, P_G, P_O, "dye"}, {MK_DAKU, P_G, P_A, "dye"},
+    {MK_DAKU, P_E, P_P, "dhu"}, {MK_DAKU, P_E, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
+    {MK_DAKU, P_L, P_Y, "ve"}, {MK_DAKU, P_L, P_U, "vo"}, {MK_DAKU, P_L, P_O, "ve"}, {MK_DAKU, P_L, P_P, "vyu"},
+    {MK_DAKU, P_L, P_A, "ve"}, {MK_DAKU, P_L, P_J, "va"}, {MK_DAKU, P_L, P_K, "vi"}, {MK_DAKU, P_L, P_SC, "vu"},
+    {MK_DAKU, P_L, P_N, "vo"},
+    {MK_DAKU, P_H, P_Y, "gwe"}, {MK_DAKU, P_H, P_U, "gwo"}, {MK_DAKU, P_H, P_O, "gwe"}, {MK_DAKU, P_H, P_A, "gwe"},
+    {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_L, "guxwa"}, {MK_DAKU, P_H, P_N, "gwo"},
+    {MK_DAKU, P_H, P_DT, "guxwa"},
+};
+
 typedef struct {
     uint16_t t_down, t_up;
     bool     down;
@@ -135,7 +168,6 @@ static const char *yoon_vowel(uint8_t p) {
 
 // Romaji for a two-key chord of x and y, or NULL.
 static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
-    if (daku >= 1 && ((x == P_L && y == P_SC) || (x == P_SC && y == P_L))) return "vu";
     const gen_t *g = gen_of(x);
     const char  *v = yoon_vowel(y);
     if (!g || !v) {
@@ -151,6 +183,32 @@ static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
 }
 
 static void resolve(uint8_t x, uint16_t now);
+
+// Whether p is pressed together with x: x itself, or a key covering enough of x's press.
+static bool in_chord(uint8_t p, uint8_t x, uint16_t now) {
+    if (p == x) return true;
+    return keys[p].live && !keys[p].used && covers(p, x, now);
+}
+
+// A gairaion chord that x is part of, or NULL. Sets the marker key.
+static const gairai_t *find_gairai(uint8_t x, uint16_t now, uint8_t *marker) {
+    for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
+        const gairai_t *g = &gairai[i];
+        if (!in_chord(g->gen, x, now) || !in_chord(g->vowel, x, now)) continue;
+        const uint8_t cand[2] = {P_F, P_J};
+        int           n       = g->marker == MK_Q ? 1 : 2;
+        for (int j = 0; j < n; j++) {
+            uint8_t m = g->marker == MK_Q ? P_Q : cand[j];
+            if (m == g->gen || m == g->vowel) continue;
+            // A dakuten key held for earlier kana may still mark this chord.
+            if (m != x && !(keys[m].live && covers(m, x, now))) continue;
+            if (x != m && x != g->gen && x != g->vowel) continue;
+            *marker = m;
+            return g;
+        }
+    }
+    return NULL;
+}
 
 // Decide keys pressed before x that are still waiting, so output keeps press order.
 static void flush_earlier(uint8_t x, uint16_t now, const bool *skip) {
@@ -182,6 +240,27 @@ static void resolve(uint8_t x, uint16_t now) {
         mods[nmods++] = s;
         if (is_daku(s)) daku++;
         if (is_chuu(s)) chuu = true;
+    }
+
+    // Gairaion chords come first: their vowel key may be a shift key.
+    uint8_t         marker;
+    const gairai_t *g = find_gairai(x, now, &marker);
+    if (g) {
+        skip[marker] = skip[g->gen] = skip[g->vowel] = true;
+        flush_earlier(x, now, skip);
+        for (int i = 0; i < 3; i++) {
+            uint8_t p = i == 0 ? marker : i == 1 ? g->gen : g->vowel;
+            if (p == x) continue;
+            // A held dakuten key keeps working as a shift; the others are used up.
+            if (is_daku(p) && p == marker) {
+                keys[p].used = true;
+            } else {
+                keys[p].live = false;
+            }
+        }
+        small_next = false;
+        emit(g->romaji);
+        return;
     }
 
     // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
