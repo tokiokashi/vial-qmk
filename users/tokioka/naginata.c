@@ -362,12 +362,13 @@ static void resolve(uint8_t x, uint16_t now) {
     if (!r && is_shift(x)) {
         for (int i = 0; i < nmods; i++) {
             uint8_t m = mods[i];
-            if (keys[m].used) continue;
             const char *r2 = single(m, is_daku(x) ? 1 : is_handaku(x) ? 2 : 0, is_chuu(x));
             if (!r2) continue;
             skip[m] = true;
             flush_earlier(x, now, skip);
-            keys[m].live = false;
+            // A held shift already used, such as F after da, gives its kana
+            // again (F+J = ga) and stays a shift.
+            if (!keys[m].used) keys[m].live = false;
             emit(r2);
             return;
         }
