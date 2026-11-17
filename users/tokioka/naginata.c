@@ -490,6 +490,12 @@ bool ng_can_chord(uint8_t a, uint8_t b) {
     return false;
 }
 
+bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
+    if (a >= NG_KEYS || b >= NG_KEYS || !is_mark_pair(a, b)) return false;
+    uint16_t sa = start_ago(&keys[a], time), sb = start_ago(&keys[b], time);
+    return (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
+}
+
 bool ng_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }
 
 uint16_t ng_down_ms(uint8_t pos, uint16_t time) { return pos < NG_KEYS ? start_ago(&keys[pos], time) : 0; }

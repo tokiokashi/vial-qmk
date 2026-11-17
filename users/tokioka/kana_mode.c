@@ -74,6 +74,7 @@ static void take_held_mods(uint16_t time) {
 // this long. If the tap-hold key is still held then, it becomes its modifier
 // and the inner key is typed with it (Ctrl+I); otherwise they make kana (hyo).
 // V and M are left out: they are the half-dakuten shift and are held long.
+// So are the , . and / pairs for ! and ?, as , and . are tap-hold keys.
 #define INNER_WAIT_MS 60
 
 static int8_t   inner_pos = -1, inner_holder = -1;
@@ -85,6 +86,8 @@ static bool is_vm(int8_t p) { return p == NG_POS_V || p == NG_POS_M; }
 static int8_t held_tap_hold_before(uint8_t p, uint16_t time) {
     for (uint8_t h = 0; h < NG_KEYS; h++) {
         if (h == p || is_vm(h) || retro_mods[h] || !ng_down(h)) continue;
+        // The ! and ? pairs are kana chords however they are released.
+        if (ng_mark_chord(h, p, time)) continue;
         if (ng_down_ms(h, time) <= ng_down_ms(p, time)) continue;
         if (IS_QK_MOD_TAP(keycode_at_keymap_location(0, key_at[h].row, key_at[h].col))) return h;
     }

@@ -19,6 +19,8 @@ void ng_cancel(uint8_t pos);
 void ng_forget(uint8_t pos);
 // Whether keys at positions a and b can make kana together.
 bool ng_can_chord(uint8_t a, uint8_t b);
+// Whether a and b are the pair for ! or ? and went down close enough to be one.
+bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time);
 extern uint8_t ng_yoon_gap_ms; // a youon pair pressed within this many ms is a chord
 extern uint8_t ng_overlap_pct; // how much of a key's press a shift must cover, in percent
 
