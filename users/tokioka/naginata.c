@@ -65,35 +65,33 @@ static const gen_t gens[] = {
 
 // Gairaion: a marker, a generator key and a vowel key pressed together.
 // The marker is a half-dakuten key (V or M) or a dakuten key (F or J).
-// Positions follow the Kikyo definition of the private edition.
+// Generators sit where their kana is (fu on the shifted ;), except tsu.
 enum { MK_HANDAKU, MK_DAKU };
 typedef struct {
     uint8_t     marker, gen, vowel;
     const char *romaji;
 } gairai_t;
 static const gairai_t gairai[] = {
+    // Vowels follow the faces: a = J, i = K, u = L, e = A or U (shift), o = N, yu = P.
     {MK_HANDAKU, P_E, P_P, "thu"},   {MK_HANDAKU, P_E, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
-    {MK_HANDAKU, P_R, P_Y, "she"},   {MK_HANDAKU, P_R, P_O, "she"},  {MK_HANDAKU, P_R, P_A, "she"},
-    {MK_HANDAKU, P_G, P_Y, "che"},   {MK_HANDAKU, P_G, P_O, "che"},
-    {MK_HANDAKU, P_DT, P_Y, "fe"},   {MK_HANDAKU, P_DT, P_U, "fo"},  {MK_HANDAKU, P_DT, P_O, "fe"},  {MK_HANDAKU, P_DT, P_P, "fyu"},
-    {MK_HANDAKU, P_DT, P_A, "fe"},   {MK_HANDAKU, P_DT, P_J, "fa"},  {MK_HANDAKU, P_DT, P_K, "fi"},  {MK_HANDAKU, P_DT, P_N, "fo"},
-    {MK_HANDAKU, P_L, P_Y, "we"},    {MK_HANDAKU, P_L, P_U, "who"},  {MK_HANDAKU, P_L, P_O, "we"},   {MK_HANDAKU, P_L, P_A, "we"},
-    {MK_HANDAKU, P_L, P_K, "wi"},    {MK_HANDAKU, P_L, P_N, "who"},
-    {MK_HANDAKU, P_K, P_Y, "ye"},    {MK_HANDAKU, P_K, P_O, "ye"},   {MK_HANDAKU, P_K, P_A, "ye"},   {MK_HANDAKU, P_K, P_L, "wi"},
-    {MK_HANDAKU, P_H, P_Y, "qe"},    {MK_HANDAKU, P_H, P_U, "qo"},   {MK_HANDAKU, P_H, P_O, "qe"},   {MK_HANDAKU, P_H, P_A, "qe"},
-    {MK_HANDAKU, P_H, P_J, "qa"},    {MK_HANDAKU, P_H, P_K, "qi"},   {MK_HANDAKU, P_H, P_L, "kuxwa"}, {MK_HANDAKU, P_H, P_N, "qo"},
-    {MK_HANDAKU, P_H, P_DT, "kuxwa"},
-    {MK_HANDAKU, P_SC, P_Y, "tse"},  {MK_HANDAKU, P_SC, P_U, "tso"}, {MK_HANDAKU, P_SC, P_O, "tse"}, {MK_HANDAKU, P_SC, P_A, "tse"},
-    {MK_HANDAKU, P_SC, P_J, "tsa"},  {MK_HANDAKU, P_SC, P_K, "tsi"}, {MK_HANDAKU, P_SC, P_N, "tso"},
-    {MK_DAKU, P_R, P_Y, "je"}, {MK_DAKU, P_R, P_O, "je"}, {MK_DAKU, P_R, P_A, "je"},
-    {MK_DAKU, P_G, P_Y, "dye"}, {MK_DAKU, P_G, P_O, "dye"}, {MK_DAKU, P_G, P_A, "dye"},
+    {MK_HANDAKU, P_R, P_A, "she"},   {MK_HANDAKU, P_R, P_U, "she"},
+    {MK_HANDAKU, P_G, P_A, "che"},   {MK_HANDAKU, P_G, P_U, "che"},
+    {MK_HANDAKU, P_SC, P_J, "fa"},   {MK_HANDAKU, P_SC, P_K, "fi"},  {MK_HANDAKU, P_SC, P_A, "fe"},  {MK_HANDAKU, P_SC, P_U, "fe"},
+    {MK_HANDAKU, P_SC, P_N, "fo"},   {MK_HANDAKU, P_SC, P_P, "fyu"},
+    {MK_HANDAKU, P_L, P_K, "wi"},    {MK_HANDAKU, P_L, P_A, "we"},   {MK_HANDAKU, P_L, P_U, "we"},   {MK_HANDAKU, P_L, P_N, "who"},
+    {MK_HANDAKU, P_K, P_A, "ye"},    {MK_HANDAKU, P_K, P_U, "ye"},   {MK_HANDAKU, P_K, P_L, "wi"},
+    {MK_HANDAKU, P_H, P_J, "qa"},    {MK_HANDAKU, P_H, P_K, "qi"},   {MK_HANDAKU, P_H, P_A, "qe"},   {MK_HANDAKU, P_H, P_U, "qe"},
+    {MK_HANDAKU, P_H, P_N, "qo"},    {MK_HANDAKU, P_H, P_L, "kuxwa"}, {MK_HANDAKU, P_H, P_DT, "kuxwa"},
+    // Tsu lives on L with u, so its row takes the dot key.
+    {MK_HANDAKU, P_DT, P_J, "tsa"},  {MK_HANDAKU, P_DT, P_K, "tsi"}, {MK_HANDAKU, P_DT, P_A, "tse"}, {MK_HANDAKU, P_DT, P_U, "tse"},
+    {MK_HANDAKU, P_DT, P_N, "tso"},
+    {MK_DAKU, P_R, P_A, "je"},  {MK_DAKU, P_R, P_U, "je"},
+    {MK_DAKU, P_G, P_A, "dye"}, {MK_DAKU, P_G, P_U, "dye"},
     {MK_DAKU, P_E, P_P, "dhu"}, {MK_DAKU, P_E, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
-    {MK_DAKU, P_L, P_Y, "ve"}, {MK_DAKU, P_L, P_U, "vo"}, {MK_DAKU, P_L, P_O, "ve"}, {MK_DAKU, P_L, P_P, "vyu"},
-    {MK_DAKU, P_L, P_A, "ve"}, {MK_DAKU, P_L, P_J, "va"}, {MK_DAKU, P_L, P_K, "vi"}, {MK_DAKU, P_L, P_SC, "vu"},
-    {MK_DAKU, P_L, P_N, "vo"},
-    {MK_DAKU, P_H, P_Y, "gwe"}, {MK_DAKU, P_H, P_U, "gwo"}, {MK_DAKU, P_H, P_O, "gwe"}, {MK_DAKU, P_H, P_A, "gwe"},
-    {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_L, "guxwa"}, {MK_DAKU, P_H, P_N, "gwo"},
-    {MK_DAKU, P_H, P_DT, "guxwa"},
+    {MK_DAKU, P_L, P_J, "va"},  {MK_DAKU, P_L, P_K, "vi"},  {MK_DAKU, P_L, P_A, "ve"},  {MK_DAKU, P_L, P_U, "ve"},
+    {MK_DAKU, P_L, P_N, "vo"},  {MK_DAKU, P_L, P_P, "vyu"}, {MK_DAKU, P_L, P_SC, "vu"},
+    {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_A, "gwe"}, {MK_DAKU, P_H, P_U, "gwe"},
+    {MK_DAKU, P_H, P_N, "gwo"}, {MK_DAKU, P_H, P_L, "guxwa"}, {MK_DAKU, P_H, P_DT, "guxwa"},
 };
 
 typedef struct {
