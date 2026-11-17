@@ -112,7 +112,11 @@ static bool  small_next;
 
 static bool is_chuu(uint8_t p) { return p == P_D || p == P_K; }
 static bool is_daku(uint8_t p) { return p == P_F || p == P_J; }
-static bool is_shift(uint8_t p) { return is_chuu(p) || is_daku(p); }
+// V and M also give the half dakuten, as in the original Naginata.
+static bool is_handaku(uint8_t p) { return p == P_V || p == P_M; }
+static bool is_shift(uint8_t p) { return is_chuu(p) || is_daku(p) || is_handaku(p); }
+// V and M pressed together are the comma or the period, not shifts of each other.
+static bool is_vm_pair(uint8_t a, uint8_t b) { return is_handaku(a) && is_handaku(b) && a != b; }
 
 // Times as how long ago, so that 16-bit timer wraparound does not matter.
 static uint16_t ago(uint16_t now, uint16_t t) { return (uint16_t)(now - t); }
@@ -268,11 +272,12 @@ static void resolve(uint8_t x, uint16_t now) {
     int     nmods = 0, daku = 0;
     bool    chuu = false;
     for (uint8_t s = 0; s < NG_KEYS; s++) {
-        if (!is_shift(s) || s == x || !keys[s].live) continue;
+        if (!is_shift(s) || s == x || !keys[s].live || is_vm_pair(s, x)) continue;
         if (!covers(s, x, now) && !(is_daku(s) && handaku_inside(x, now))) continue;
         if (!ng_post_shift && !is_shift(x) && !pressed_before(s, x, now)) continue;
         mods[nmods++] = s;
         if (is_daku(s)) daku++;
+        if (is_handaku(s)) daku += 2;
         if (is_chuu(s)) chuu = true;
     }
 
@@ -330,7 +335,7 @@ static void resolve(uint8_t x, uint16_t now) {
     // Two-key chords: youon and vu.
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
-        if (y == x || is_shift(y) || !keys[y].live || keys[y].used) continue;
+        if (y == x || (is_shift(y) && !is_vm_pair(x, y)) || !keys[y].live || keys[y].used) continue;
         if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) continue;
         const char *r = pair_romaji(x, y, daku, buf, now);
         if (!r) continue;
@@ -355,7 +360,7 @@ static void resolve(uint8_t x, uint16_t now) {
         for (int i = 0; i < nmods; i++) {
             uint8_t m = mods[i];
             if (keys[m].used) continue;
-            const char *r2 = single(m, is_daku(x) ? 1 : 0, is_chuu(x));
+            const char *r2 = single(m, is_daku(x) ? 1 : is_handaku(x) ? 2 : 0, is_chuu(x));
             if (!r2) continue;
             skip[m] = true;
             flush_earlier(x, now, skip);
@@ -369,7 +374,7 @@ static void resolve(uint8_t x, uint16_t now) {
     if (!r && daku > 0) {
         int n = 0;
         for (int i = 0; i < nmods; i++) {
-            if (!is_daku(mods[i])) mods[n++] = mods[i];
+            if (is_chuu(mods[i])) mods[n++] = mods[i];
         }
         nmods = n;
         daku  = 0;
@@ -463,10 +468,12 @@ bool ng_can_chord(uint8_t a, uint8_t b) {
     // A shift key is a partner only when it changes the other key: ho and hi
     // have nothing on the middle-finger shift face, so Ctrl on them still
     // works with D and K (Onishi A and N).
-    if (is_shift(a) && is_shift(b)) return true;
+    if (is_shift(a) && is_shift(b)) return true; // includes V and M for the comma and period
     if (is_shift(a) || is_shift(b)) {
         uint8_t s = is_shift(a) ? a : b, k = is_shift(a) ? b : a;
-        return is_chuu(s) ? shift_face[k] != NULL : daku_face[k] != NULL || handaku_face[k] != NULL;
+        if (is_chuu(s)) return shift_face[k] != NULL;
+        if (is_handaku(s)) return handaku_face[k] != NULL;
+        return daku_face[k] != NULL || handaku_face[k] != NULL;
     }
     char buf[8];
     for (int d = 0; d <= 2; d++) {
