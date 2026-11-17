@@ -3,6 +3,10 @@
   "vendorId": "0x45D4",
   "productId": "0x0075",
   "lighting": "vialrgb",
+  "customKeycodes": [
+    {"name": "NG_SW", "title": "Switch the kana layout hj goes to (TK on-choku / Naginata)", "shortName": "KanaSW"},
+    {"name": "NG_POST", "title": "Switch post-shift on/off in Naginata mode", "shortName": "PostSft"}
+  ],
   "matrix": { "rows": 5, "cols": 15 },
   "layouts": {
     "keymap": [

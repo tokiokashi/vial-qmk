@@ -21,4 +21,5 @@ REPEAT_KEY_ENABLE   = yes   # Alt Repeat Key tab in Vial
 OLED_ENABLE         = no
 LAYER_LOCK_ENABLE   = no
 
-SRC += naginata.c
+# Kana mode (users/tokioka)
+USER_NAME := tokioka
