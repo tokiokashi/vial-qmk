@@ -25,7 +25,7 @@ static const char *const base_face[NG_KEYS] = {
     "ho", "hi", "ha", "ko", "so",  "o",  "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "me", "ni", "ne", "#E",  "#J", "e",  "yo", "ro", "yu",
+    "#S", "me", "ni", "ne", NULL,  NULL, "e",  "yo", "ro", "yu",
     "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
     NULL, NULL, "nu", ",",  NULL,  "wo", ".",  "mu", "wa", "/",
 };
