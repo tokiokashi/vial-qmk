@@ -87,13 +87,6 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     return true;
 }
 
-// Permissive hold would turn a quick X held over a kana key into Ctrl, so a chord
-// such as hi+yo for hyo could only be typed by pressing yo first. While typing
-// Naginata a tap-hold key becomes a modifier only after the tapping term.
-bool qs_permissive_hold_allowed_user(uint16_t keycode, keyrecord_t *record) {
-    return !(naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()));
-}
-
 // V and M are tap-hold Shift keys in the .vil. While typing Naginata they are
 // plain kana keys on layer 0, so a key held inside a chord never becomes Shift.
 // The rest follows the default keymap_key_to_keycode; no board here has
@@ -110,6 +103,17 @@ uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
         if (pos == NG_POS_V || pos == NG_POS_M) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
     }
     return keycode;
+}
+
+// A tap-hold key and a key pressed during it that make kana together, such as
+// hi and yo for hyo or ha and a dakuten key, are settled as a tap at once. Any
+// other key leaves it to permissive hold, so Ctrl and the like work without
+// waiting out the tapping term.
+int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, uint16_t other_keycode, keyrecord_t *other_record) {
+    if (!(naginata_on() && on_kana_layer()) || (get_mods() | get_oneshot_mods())) return -1;
+    int8_t a = ng_pos(tap_hold_record->event.key), b = ng_pos(other_record->event.key);
+    if (a < 0 || b < 0 || !ng_can_chord(a, b)) return -1;
+    return 0;
 }
 
 bool kana_mode_combo_allowed(combo_class_t c) {

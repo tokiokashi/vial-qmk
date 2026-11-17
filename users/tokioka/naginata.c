@@ -457,3 +457,20 @@ bool ng_pending(void) {
     }
     return false;
 }
+
+bool ng_can_chord(uint8_t a, uint8_t b) {
+    if (a >= NG_KEYS || b >= NG_KEYS || a == b) return false;
+    if (is_shift(a) || is_shift(b)) return true;
+    char buf[8];
+    for (int d = 0; d <= 2; d++) {
+        if (pair_romaji(a, b, d, buf, 0)) return true;
+    }
+    for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
+        const gairai_t *g  = &gairai[i];
+        uint8_t         m  = g->marker == MK_Q ? P_Q : P_F;
+        bool            ha = a == g->gen || a == g->vowel || a == m;
+        bool            hb = b == g->gen || b == g->vowel || b == m;
+        if (ha && hb) return true;
+    }
+    return false;
+}
