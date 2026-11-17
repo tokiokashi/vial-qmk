@@ -25,18 +25,18 @@ enum {
 // "#B": next [ ] as s[ s],
 // "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "te", "si", "ri",  "#A", "ta", "su", "ru", "he",
+    "#X", "te", "ki", "si", "ri",  "#A", "ta", "su", "ru", "he",
     "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
     "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "me", "ni", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
-    "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
+    "#S", "ni", "me", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
+    "se", "mo", "ma", "mi", "ti",  "ya", "no", "ma", "tu", "hu",
     NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gi", "de", "zi", NULL,  NULL, "da", "zu", NULL, "be",
+    NULL, "de", "gi", "zi", NULL,  NULL, "da", "zu", NULL, "be",
     "ze", "ge", NULL, "ga", "di",  "gu", NULL, NULL, "du", "bu",
     "bo", "bi", "ba", "go", "zo",  "za", NULL, "do", NULL, NULL,
 };
@@ -60,8 +60,8 @@ typedef struct {
     const char *plain, *daku, *handaku;
 } gen_t;
 static const gen_t gens[] = {
-    {P_W, "ky", "gy", NULL}, {P_R, "sy", "zy", NULL}, {P_G, "ty", "dy", NULL}, {P_X, "hy", "by", "py"},
-    {P_S, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_E, "ny", NULL, NULL},
+    {P_E, "ky", "gy", NULL}, {P_R, "sy", "zy", NULL}, {P_G, "ty", "dy", NULL}, {P_X, "hy", "by", "py"},
+    {P_F, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_W, "ny", NULL, NULL},
 };
 
 // Gairaion: a marker, a generator key and a vowel key pressed together.
@@ -74,7 +74,7 @@ typedef struct {
 } gairai_t;
 static const gairai_t gairai[] = {
     // Vowels follow the faces: a = J, i = K, u = L, e = U (shift), o = A, yu = P.
-    {MK_HANDAKU, P_E, P_P, "thu"},   {MK_HANDAKU, P_E, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
+    {MK_HANDAKU, P_W, P_P, "thu"},   {MK_HANDAKU, P_W, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
     {MK_HANDAKU, P_R, P_U, "she"},
     {MK_HANDAKU, P_G, P_U, "che"},
     {MK_HANDAKU, P_SC, P_J, "fa"},   {MK_HANDAKU, P_SC, P_K, "fi"},  {MK_HANDAKU, P_SC, P_U, "fe"},
@@ -88,7 +88,7 @@ static const gairai_t gairai[] = {
     {MK_HANDAKU, P_DT, P_A, "tso"},
     {MK_DAKU, P_R, P_U, "je"},
     {MK_DAKU, P_G, P_U, "dye"},
-    {MK_DAKU, P_E, P_P, "dhu"}, {MK_DAKU, P_E, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
+    {MK_DAKU, P_W, P_P, "dhu"}, {MK_DAKU, P_W, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
     {MK_DAKU, P_L, P_J, "va"},  {MK_DAKU, P_L, P_K, "vi"},  {MK_DAKU, P_L, P_U, "ve"},
     {MK_DAKU, P_L, P_A, "vo"},  {MK_DAKU, P_L, P_P, "vyu"}, {MK_DAKU, P_L, P_SC, "vu"},
     {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_U, "gwe"},
