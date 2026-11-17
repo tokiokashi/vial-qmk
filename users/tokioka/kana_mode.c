@@ -115,7 +115,7 @@ static void inner_settle(void) {
 // stay; released alone later, it gives nothing.
 #define VM_TAP_MS 200
 // The hold time follows the tapping term set in Vial, so a V or M hold matches
-// the other tap-hold keys.
+// the other tap-hold keys. The lone D, K, F and J hold below uses it too.
 #ifdef QMK_SETTINGS
 #    include "qmk_settings.h"
 #    define VM_WORD_MS (QS.tapping_term)
@@ -158,9 +158,9 @@ static void vm_word_task(void) {
     vm_word_pending = mod_tap_mods(kc);
 }
 
-// D, K, F and J held alone this long and let go give nothing, so a shift or
-// dakuten key pressed by mistake can be dropped by holding it a while.
-#define LONE_SHIFT_MS 300
+// D, K, F and J held alone for the tapping term and let go give nothing, so a
+// shift or dakuten key pressed by mistake can be dropped by holding it a while.
+#define LONE_SHIFT_MS VM_WORD_MS
 
 static int8_t   lone_pos = -1;
 static uint16_t lone_time;
