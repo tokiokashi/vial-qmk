@@ -24,7 +24,7 @@ enum {
 // "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "#X", "ki", "te", "si", "ri",  "sa", "ta", "su", "ru", "he",
-    "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "xtu",
+    "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
     "ho", "hi", "ha", "ko", "so",  NULL, "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
@@ -48,7 +48,7 @@ static const char *const handaku_face[NG_KEYS] = {
 // lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
     NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
-    "xo",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
+    "xo",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "ltu",
     NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  NULL,  NULL,  "xwa", NULL,
 };
 
