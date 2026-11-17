@@ -207,6 +207,11 @@ static void resolve(uint8_t x, uint16_t now) {
 
     const char *r = single(x, daku, chuu);
 
+    // J+H alone turns the IME on and F+G alone turns it off, like the hj and fg
+    // combos of TK on-choku. Their dakuten (gu, di) are typed with the other hand.
+    if (nmods == 1 && x == P_H && mods[0] == P_J) r = "#J";
+    if (nmods == 1 && x == P_G && mods[0] == P_F) r = "#E";
+
     // Two shift keys together: x may be the shift and the other key the kana.
     if (!r && is_shift(x)) {
         for (int i = 0; i < nmods; i++) {
@@ -247,22 +252,23 @@ void ng_press(uint8_t pos, uint16_t time) {
     keys[pos] = (ngkey_t){.t_down = time, .down = true, .live = true};
 }
 
-// Whether a key pressed after p is still held.
-static bool later_key_down(uint8_t p, uint16_t now) {
+// Whether a key that p may still shift is held: a kana key, or a shift key pressed after p.
+static bool shiftable_key_down(uint8_t p, uint16_t now) {
     for (uint8_t q = 0; q < NG_KEYS; q++) {
-        if (q != p && keys[q].live && keys[q].down && !pressed_before(q, p, now)) return true;
+        if (q == p || !keys[q].live || !keys[q].down) continue;
+        if (!is_shift(q) || !pressed_before(q, p, now)) return true;
     }
     return false;
 }
 
-// Decide released keys in press order. A released shift key waits while a key
-// pressed after it is still held, because it may still turn out to shift that key.
+// Decide released keys in press order. A released shift key waits while a key it
+// may still shift is held.
 static void settle(uint16_t now) {
     for (;;) {
         int first = -1;
         for (uint8_t p = 0; p < NG_KEYS; p++) {
             if (!keys[p].live || keys[p].down) continue;
-            if (is_shift(p) && later_key_down(p, now)) continue;
+            if (is_shift(p) && shiftable_key_down(p, now)) continue;
             if (first < 0 || pressed_before(p, (uint8_t)first, now)) first = p;
         }
         if (first < 0) return;

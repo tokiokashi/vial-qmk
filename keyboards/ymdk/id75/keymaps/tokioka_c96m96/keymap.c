@@ -89,13 +89,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
  * 0-1 fg/hj IME, 2-5 Caps Word, Caps Lock, ! and ? on the bottom row,
  * 6-7 thumb macros, 8-9 IME on the QWERTY layer, 11 volume, 10 and 12- TK on-choku.
  */
+/* In Naginata mode the engine reads fg and hj itself, so that hj inside a
+ * chord such as R+H+J (zya) is not taken as IME on. */
 bool combo_should_trigger(uint16_t combo_index, combo_t *combo, uint16_t keycode, keyrecord_t *record) {
     switch (combo_index) {
-        case 0 ... 1:
         case 6 ... 7:
         case 11:
             return kana_mode_combo_allowed(COMBO_ALWAYS);
-        case 2 ... 5:
+        case 0 ... 5:
         case 8 ... 9:
             return kana_mode_combo_allowed(COMBO_NOT_NAGINATA);
         default:
