@@ -30,10 +30,11 @@ static const char *const shift_face[NG_KEYS] = {
     NULL, NULL, "nu", ",",  NULL,  "wo", ".",  "mu", "wa", "/",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
+// wo is read as the dakuten of o.
 static const char *const daku_face[NG_KEYS] = {
     NULL, "gi", "de", "zi", NULL,  "za", "da", "zu", NULL, "be",
     "ze", "ge", NULL, "ga", "di",  "gu", NULL, NULL, "du", "bu",
-    "bo", "bi", "ba", "go", "zo",  NULL, NULL, "do", NULL, NULL,
+    "bo", "bi", "ba", "go", "zo",  "wo", NULL, "do", NULL, NULL,
 };
 static const char *const handaku_face[NG_KEYS] = {
     NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, "pe",
@@ -172,6 +173,9 @@ static const char *yoon_vowel(uint8_t p) {
 
 // Romaji for a two-key chord of x and y, or NULL.
 static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
+    // ! and ? on the bottom row, like the combos of TK on-choku.
+    if (daku == 0 && ((x == P_CM && y == P_DT) || (x == P_DT && y == P_CM))) return "!";
+    if (daku == 0 && ((x == P_DT && y == P_SL) || (x == P_SL && y == P_DT))) return "?";
     const gen_t *g = gen_of(x);
     const char  *v = yoon_vowel(y);
     if (!g || !v) {
