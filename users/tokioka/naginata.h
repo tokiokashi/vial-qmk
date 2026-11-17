@@ -29,6 +29,9 @@ void ng_release(uint8_t pos, uint16_t time);
 // Output every key still waiting, as if all keys were released now.
 void ng_flush(uint16_t time);
 bool ng_pending(void);
+// Whether Y was just tapped for an arrow; clears it. A key outside the engine
+// uses it, as [ and ] after Y give z[ and z].
+bool ng_take_arrow_prefix(void);
 
 // Provided by the caller.
 void ng_send_romaji(const char *romaji);

@@ -581,6 +581,12 @@ void ng_flush(uint16_t time) {
     }
 }
 
+bool ng_take_arrow_prefix(void) {
+    bool a     = arrow_next;
+    arrow_next = false;
+    return a;
+}
+
 bool ng_pending(void) {
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         if (keys[p].live) return true;
