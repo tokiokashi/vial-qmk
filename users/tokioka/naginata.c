@@ -99,6 +99,7 @@ typedef struct {
     bool     live; // has a press that has not been decided yet
     bool     used;    // served as a shift at least once, so it outputs nothing itself
     bool     touched; // another key was down at some point during this press
+    bool     anchor;  // held kana key already shifted by shift taps inside its press
 } ngkey_t;
 
 // Q alone gives Esc only when tapped within this many ms.
@@ -456,10 +457,42 @@ static void settle(uint16_t now) {
     }
 }
 
+// A shift key tapped inside the press of a held kana key, while no other key
+// is held, shifts that kana at once, as Kikyo did: holding u (L) and tapping
+// D then F gives tsu then du. The kana key then gives nothing on release.
+static bool tap_inside_kana(uint8_t pos, uint16_t now) {
+    if (!is_shift(pos) || !keys[pos].live || keys[pos].used) return false;
+    int k = -1;
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (p == pos || !keys[p].down) continue;
+        if (k >= 0 || is_shift(p) || p == P_Q) return false;
+        k = p;
+    }
+    if (k < 0 || !keys[k].live || (keys[k].used && !keys[k].anchor)) return false;
+    if (start_ago(&keys[k], now) <= start_ago(&keys[pos], now)) return false;
+    int         daku = is_daku(pos) ? 1 : is_handaku(pos) ? 2 : 0;
+    const char *r    = single((uint8_t)k, daku, is_chuu(pos));
+    if (!r) return false;
+    bool skip[NG_KEYS] = {false};
+    skip[k] = skip[pos] = true;
+    flush_earlier((uint8_t)k, now, skip);
+    keys[pos].live = false;
+    keys[pos].used = true;
+    keys[k].used   = true;
+    keys[k].anchor = true;
+    small_next     = false;
+    emit(r);
+    return true;
+}
+
 void ng_release(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
     keys[pos].t_up = time;
+    if (tap_inside_kana(pos, time)) {
+        settle(time);
+        return;
+    }
     // A shift key pressed while Q is held is a kana key for the small kana.
     bool q_small = keys[P_Q].live && keys[P_Q].down && pressed_before(P_Q, pos, time) && small_face[pos];
     if (!is_shift(pos) || q_small) resolve(pos, time);
