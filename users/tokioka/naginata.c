@@ -1,9 +1,9 @@
 // Naginata-style kana engine (tokioka private edition, trial).
 //
 // Every key is decided when it is released. A shift key (D/K = middle-finger
-// shift, F/J = dakuten) applies to a kana key when the two presses overlap by
-// at least ng_overlap_pct percent of the kana key's press. Holding both F and J
-// gives handakuten. Kana are sent as romaji, so the IME must be in romaji mode.
+// shift, F/J = dakuten, V/M = half dakuten) applies to a kana key when the two
+// presses overlap by at least ng_overlap_pct percent of the kana key's press.
+// Kana are sent as romaji, so the IME must be in romaji mode.
 
 #include "naginata.h"
 #include <stddef.h>
@@ -64,27 +64,27 @@ static const gen_t gens[] = {
 };
 
 // Gairaion: a marker, a generator key and a vowel key pressed together.
-// The marker is Q (where the half-dakuten V/M used to be) or a dakuten key.
+// The marker is a half-dakuten key (V or M) or a dakuten key (F or J).
 // Positions follow the Kikyo definition of the private edition.
-enum { MK_Q, MK_DAKU };
+enum { MK_HANDAKU, MK_DAKU };
 typedef struct {
     uint8_t     marker, gen, vowel;
     const char *romaji;
 } gairai_t;
 static const gairai_t gairai[] = {
-    {MK_Q, P_E, P_P, "thu"},   {MK_Q, P_E, P_K, "thi"},  {MK_Q, P_CM, P_L, "twu"},
-    {MK_Q, P_R, P_Y, "she"},   {MK_Q, P_R, P_O, "she"},  {MK_Q, P_R, P_A, "she"},
-    {MK_Q, P_G, P_Y, "che"},   {MK_Q, P_G, P_O, "che"},
-    {MK_Q, P_DT, P_Y, "fe"},   {MK_Q, P_DT, P_U, "fo"},  {MK_Q, P_DT, P_O, "fe"},  {MK_Q, P_DT, P_P, "fyu"},
-    {MK_Q, P_DT, P_A, "fe"},   {MK_Q, P_DT, P_J, "fa"},  {MK_Q, P_DT, P_K, "fi"},  {MK_Q, P_DT, P_N, "fo"},
-    {MK_Q, P_L, P_Y, "we"},    {MK_Q, P_L, P_U, "who"},  {MK_Q, P_L, P_O, "we"},   {MK_Q, P_L, P_A, "we"},
-    {MK_Q, P_L, P_K, "wi"},    {MK_Q, P_L, P_N, "who"},
-    {MK_Q, P_K, P_Y, "ye"},    {MK_Q, P_K, P_O, "ye"},   {MK_Q, P_K, P_A, "ye"},   {MK_Q, P_K, P_L, "wi"},
-    {MK_Q, P_H, P_Y, "qe"},    {MK_Q, P_H, P_U, "qo"},   {MK_Q, P_H, P_O, "qe"},   {MK_Q, P_H, P_A, "qe"},
-    {MK_Q, P_H, P_J, "qa"},    {MK_Q, P_H, P_K, "qi"},   {MK_Q, P_H, P_L, "kuxwa"}, {MK_Q, P_H, P_N, "qo"},
-    {MK_Q, P_H, P_DT, "kuxwa"},
-    {MK_Q, P_SC, P_Y, "tse"},  {MK_Q, P_SC, P_U, "tso"}, {MK_Q, P_SC, P_O, "tse"}, {MK_Q, P_SC, P_A, "tse"},
-    {MK_Q, P_SC, P_J, "tsa"},  {MK_Q, P_SC, P_K, "tsi"}, {MK_Q, P_SC, P_N, "tso"},
+    {MK_HANDAKU, P_E, P_P, "thu"},   {MK_HANDAKU, P_E, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
+    {MK_HANDAKU, P_R, P_Y, "she"},   {MK_HANDAKU, P_R, P_O, "she"},  {MK_HANDAKU, P_R, P_A, "she"},
+    {MK_HANDAKU, P_G, P_Y, "che"},   {MK_HANDAKU, P_G, P_O, "che"},
+    {MK_HANDAKU, P_DT, P_Y, "fe"},   {MK_HANDAKU, P_DT, P_U, "fo"},  {MK_HANDAKU, P_DT, P_O, "fe"},  {MK_HANDAKU, P_DT, P_P, "fyu"},
+    {MK_HANDAKU, P_DT, P_A, "fe"},   {MK_HANDAKU, P_DT, P_J, "fa"},  {MK_HANDAKU, P_DT, P_K, "fi"},  {MK_HANDAKU, P_DT, P_N, "fo"},
+    {MK_HANDAKU, P_L, P_Y, "we"},    {MK_HANDAKU, P_L, P_U, "who"},  {MK_HANDAKU, P_L, P_O, "we"},   {MK_HANDAKU, P_L, P_A, "we"},
+    {MK_HANDAKU, P_L, P_K, "wi"},    {MK_HANDAKU, P_L, P_N, "who"},
+    {MK_HANDAKU, P_K, P_Y, "ye"},    {MK_HANDAKU, P_K, P_O, "ye"},   {MK_HANDAKU, P_K, P_A, "ye"},   {MK_HANDAKU, P_K, P_L, "wi"},
+    {MK_HANDAKU, P_H, P_Y, "qe"},    {MK_HANDAKU, P_H, P_U, "qo"},   {MK_HANDAKU, P_H, P_O, "qe"},   {MK_HANDAKU, P_H, P_A, "qe"},
+    {MK_HANDAKU, P_H, P_J, "qa"},    {MK_HANDAKU, P_H, P_K, "qi"},   {MK_HANDAKU, P_H, P_L, "kuxwa"}, {MK_HANDAKU, P_H, P_N, "qo"},
+    {MK_HANDAKU, P_H, P_DT, "kuxwa"},
+    {MK_HANDAKU, P_SC, P_Y, "tse"},  {MK_HANDAKU, P_SC, P_U, "tso"}, {MK_HANDAKU, P_SC, P_O, "tse"}, {MK_HANDAKU, P_SC, P_A, "tse"},
+    {MK_HANDAKU, P_SC, P_J, "tsa"},  {MK_HANDAKU, P_SC, P_K, "tsi"}, {MK_HANDAKU, P_SC, P_N, "tso"},
     {MK_DAKU, P_R, P_Y, "je"}, {MK_DAKU, P_R, P_O, "je"}, {MK_DAKU, P_R, P_A, "je"},
     {MK_DAKU, P_G, P_Y, "dye"}, {MK_DAKU, P_G, P_O, "dye"}, {MK_DAKU, P_G, P_A, "dye"},
     {MK_DAKU, P_E, P_P, "dhu"}, {MK_DAKU, P_E, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
@@ -139,15 +139,6 @@ static uint16_t overlap(uint8_t a, uint8_t b, uint16_t now) {
 // Whether b covers enough of a's press.
 static bool covers(uint8_t b, uint8_t a, uint16_t now) {
     return (uint32_t)overlap(a, b, now) * 100 >= (uint32_t)ng_overlap_pct * duration(a, now);
-}
-
-// F and J pressed together as the half dakuten, with x's press covering both.
-// A chord such as F+J+X+I for pyo has four keys and is hard to hold neatly, so
-// the pair may also lie inside x's press instead of covering it.
-static bool handaku_inside(uint8_t x, uint16_t now) {
-    if (x == P_F || x == P_J || !keys[P_F].live || !keys[P_J].live) return false;
-    if (!covers(P_F, P_J, now) && !covers(P_J, P_F, now)) return false;
-    return covers(x, P_F, now) && covers(x, P_J, now);
 }
 
 static bool pressed_before(uint8_t a, uint8_t b, uint16_t now) { return start_ago(&keys[a], now) >= start_ago(&keys[b], now); }
@@ -233,12 +224,11 @@ static const gairai_t *find_gairai(uint8_t x, uint16_t now, uint8_t *marker) {
     for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
         const gairai_t *g = &gairai[i];
         if (!in_chord(g->gen, x, now) || !in_chord(g->vowel, x, now)) continue;
-        const uint8_t cand[2] = {P_F, P_J};
-        int           n       = g->marker == MK_Q ? 1 : 2;
-        for (int j = 0; j < n; j++) {
-            uint8_t m = g->marker == MK_Q ? P_Q : cand[j];
+        const uint8_t cand[2] = {g->marker == MK_HANDAKU ? P_V : P_F, g->marker == MK_HANDAKU ? P_M : P_J};
+        for (int j = 0; j < 2; j++) {
+            uint8_t m = cand[j];
             if (m == g->gen || m == g->vowel) continue;
-            // A dakuten key held for earlier kana may still mark this chord.
+            // A marker key held for earlier kana may still mark this chord.
             if (m != x && !(keys[m].live && covers(m, x, now))) continue;
             if (x != m && x != g->gen && x != g->vowel) continue;
             *marker = m;
@@ -273,11 +263,12 @@ static void resolve(uint8_t x, uint16_t now) {
     bool    chuu = false;
     for (uint8_t s = 0; s < NG_KEYS; s++) {
         if (!is_shift(s) || s == x || !keys[s].live || is_vm_pair(s, x)) continue;
-        if (!covers(s, x, now) && !(is_daku(s) && handaku_inside(x, now))) continue;
+        if (!covers(s, x, now)) continue;
         if (!ng_post_shift && !is_shift(x) && !pressed_before(s, x, now)) continue;
         mods[nmods++] = s;
-        if (is_daku(s)) daku++;
-        if (is_handaku(s)) daku += 2;
+        // Both dakuten keys together are still the dakuten; V or M gives the half dakuten.
+        if (is_daku(s) && daku < 1) daku = 1;
+        if (is_handaku(s)) daku = 2;
         if (is_chuu(s)) chuu = true;
     }
 
@@ -291,7 +282,7 @@ static void resolve(uint8_t x, uint16_t now) {
             uint8_t p = i == 0 ? marker : i == 1 ? g->gen : g->vowel;
             if (p == x) continue;
             // A held dakuten key keeps working as a shift; the others are used up.
-            if (is_daku(p) && p == marker) {
+            if ((is_daku(p) || is_handaku(p)) && p == marker) {
                 keys[p].used = true;
             } else {
                 keys[p].live = false;
@@ -463,28 +454,30 @@ bool ng_pending(void) {
     return false;
 }
 
+// Whether p takes part in gairaion chord g, as its marker, generator or vowel.
+static bool in_gairai(const gairai_t *g, uint8_t p) {
+    if (p == g->gen || p == g->vowel) return true;
+    return g->marker == MK_HANDAKU ? is_handaku(p) : is_daku(p);
+}
+
 bool ng_can_chord(uint8_t a, uint8_t b) {
     if (a >= NG_KEYS || b >= NG_KEYS || a == b) return false;
+    for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
+        if (in_gairai(&gairai[i], a) && in_gairai(&gairai[i], b)) return true;
+    }
     // A shift key is a partner only when it changes the other key: ho and hi
-    // have nothing on the middle-finger shift face, so Ctrl on them still
-    // works with D and K (Onishi A and N).
-    if (is_shift(a) && is_shift(b)) return true; // includes V and M for the comma and period
+    // have nothing on the middle-finger shift face, so Ctrl+D and Ctrl+K on
+    // them still work at once.
+    if (is_shift(a) && is_shift(b)) return true;
     if (is_shift(a) || is_shift(b)) {
         uint8_t s = is_shift(a) ? a : b, k = is_shift(a) ? b : a;
         if (is_chuu(s)) return shift_face[k] != NULL;
         if (is_handaku(s)) return handaku_face[k] != NULL;
-        return daku_face[k] != NULL || handaku_face[k] != NULL;
+        return daku_face[k] != NULL;
     }
     char buf[8];
     for (int d = 0; d <= 2; d++) {
         if (pair_romaji(a, b, d, buf, 0)) return true;
-    }
-    for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
-        const gairai_t *g  = &gairai[i];
-        uint8_t         m  = g->marker == MK_Q ? P_Q : P_F;
-        bool            ha = a == g->gen || a == g->vowel || a == m;
-        bool            hb = b == g->gen || b == g->vowel || b == m;
-        if (ha && hb) return true;
     }
     return false;
 }
