@@ -41,6 +41,13 @@ static const char *const handaku_face[NG_KEYS] = {
     "po", "pi", "pa", NULL, NULL,  NULL, NULL, NULL, NULL, NULL,
 };
 
+// Small kana, for the key after the middle-finger shift + Q.
+static const char *const small_face[NG_KEYS] = {
+    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
+    "xe",  NULL,  NULL,  NULL,  NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
+    NULL,  NULL,  NULL,  NULL,  NULL,   "xo",  NULL,  NULL,  "xwa", NULL,
+};
+
 // Youon: a generator key with H = ya, I = yo, P = yu.
 typedef struct {
     uint8_t     pos;
@@ -100,18 +107,6 @@ static void emit(const char *r) {
             ng_ime(r[1] == 'J');
         }
         return;
-    }
-    if (small_next) {
-        small_next = false;
-        static const char *const smallable[] = {"a", "i", "u", "e", "o", "ya", "yu", "yo", "tu", "wa"};
-        for (size_t i = 0; i < sizeof(smallable) / sizeof(smallable[0]); i++) {
-            if (strcmp(r, smallable[i]) == 0) {
-                char buf[4] = "x";
-                strcat(buf, r);
-                ng_send_romaji(buf);
-                return;
-            }
-        }
     }
     ng_send_romaji(r);
 }
@@ -188,6 +183,17 @@ static void resolve(uint8_t x, uint16_t now) {
         if (is_daku(s)) daku++;
         if (is_chuu(s)) chuu = true;
     }
+
+    // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
+    if (small_next && small_face[x]) {
+        for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
+        flush_earlier(x, now, skip);
+        for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
+        small_next = false;
+        emit(small_face[x]);
+        return;
+    }
+    small_next = false;
 
     // Two-key chords: youon and vu.
     char buf[8];
