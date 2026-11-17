@@ -23,9 +23,9 @@ enum {
 
 // "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "te", "si", "ri",  "sa", "ta", "su", "ru", "he",
+    "#X", "ki", "te", "si", "ri",  NULL, "ta", "su", "ru", "he",
     "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
-    "ho", "hi", "ha", "ko", "so",  NULL, "na", "to", "ra", "re",
+    "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
     "#S", "me", "ni", "ne", NULL,  NULL, "e",  "yo", "ro", "yu",
@@ -34,9 +34,9 @@ static const char *const shift_face[NG_KEYS] = {
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gi", "de", "zi", NULL,  "za", "da", "zu", NULL, "be",
+    NULL, "gi", "de", "zi", NULL,  NULL, "da", "zu", NULL, "be",
     "ze", "ge", NULL, "ga", "di",  "gu", NULL, NULL, "du", "bu",
-    "bo", "bi", "ba", "go", "zo",  NULL, NULL, "do", NULL, NULL,
+    "bo", "bi", "ba", "go", "zo",  "za", NULL, "do", NULL, NULL,
 };
 static const char *const handaku_face[NG_KEYS] = {
     NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, "pe",
