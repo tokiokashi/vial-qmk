@@ -2,6 +2,10 @@
     "name": "goforty_ortho",
     "vendorId": "0x355D",
     "productId": "0x1006",
+    "customKeycodes": [
+        {"name": "NG_SW", "title": "Switch the kana layout hj goes to (TK on-choku / Naginata)", "shortName": "KanaSW"},
+        {"name": "NG_POST", "title": "Switch post-shift on/off in Naginata mode", "shortName": "PostSft"}
+    ],
     "matrix": {
         "rows": 4,
         "cols": 13

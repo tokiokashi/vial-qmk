@@ -16,6 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include QMK_KEYBOARD_H
+#include "kana_mode.h"
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT(
@@ -76,5 +77,42 @@ bool caps_word_press_user(uint16_t keycode) {
             return true;
         default:
             return false;
+    }
+}
+
+/* Kana mode (TK on-choku / Naginata trial) lives in users/tokioka. */
+
+void keyboard_post_init_user(void) { kana_mode_init(); }
+
+// Alpha keys of the GoForty matrix (GoForty_outer.vil) as positions
+// Q..P = 0..9, A..; = 10..19, Z../ = 20..29.
+static int8_t ng_pos(keypos_t k) {
+    if (k.row > 2) return -1;
+    if (k.col <= 4) return k.row * 10 + k.col;
+    if (k.col >= 8 && k.col <= 12) return k.row * 10 + 5 + k.col - 8;
+    return -1;
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    return kana_mode_process_record(keycode, record, ng_pos(record->event.key));
+}
+
+/* Combo slots follow GoForty_outer.vil:
+ * 0-1 fg/hj IME, 2-5 Caps Word, Caps Lock, ! and ? on the bottom row,
+ * 6-7 thumb macros, 8-9 IME on the QWERTY layer, 10 Esc+L for q,
+ * 11 volume, 12 Esc on the QWERTY layer, 13- TK on-choku.
+ */
+/* In Naginata mode the engine reads fg and hj itself, so that hj inside a
+ * chord such as R+H+J (zya) is not taken as IME on. */
+bool combo_should_trigger(uint16_t combo_index, combo_t *combo, uint16_t keycode, keyrecord_t *record) {
+    switch (combo_index) {
+        case 6 ... 7:
+        case 11 ... 12:
+            return kana_mode_combo_allowed(COMBO_ALWAYS);
+        case 0 ... 5:
+        case 8 ... 10:
+            return kana_mode_combo_allowed(COMBO_NOT_NAGINATA);
+        default:
+            return kana_mode_combo_allowed(COMBO_ONCHOKU);
     }
 }
