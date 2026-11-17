@@ -263,6 +263,25 @@ static void resolve(uint8_t x, uint16_t now) {
         return;
     }
 
+    // Q held with a key gives that key's small kana, as the Kikyo <q> face did.
+    // k is the key that is not Q.
+    for (uint8_t y = 0; y < NG_KEYS; y++) {
+        uint8_t k = x == P_Q ? y : x;
+        if (y == x || (x != P_Q && y != P_Q) || !small_face[k]) continue;
+        if (!keys[y].live || keys[y].used) continue;
+        // Q is held first, and the other key's press lies mostly within Q's.
+        if (!pressed_before(P_Q, k, now)) continue;
+        if (!covers(y, x, now) && !(!keys[y].down && covers(x, y, now))) continue;
+        for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
+        skip[y] = true;
+        flush_earlier(x, now, skip);
+        keys[y].live = false;
+        for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
+        small_next = false;
+        emit(small_face[k]);
+        return;
+    }
+
     // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
     if (small_next && small_face[x]) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
