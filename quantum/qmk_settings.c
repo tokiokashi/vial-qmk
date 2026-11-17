@@ -289,8 +289,12 @@ uint16_t qs_get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     return QS.tapping_term;
 }
 
+__attribute__((weak)) bool qs_permissive_hold_allowed_user(uint16_t keycode, keyrecord_t *record) {
+    return true;
+}
+
 bool get_permissive_hold(uint16_t keycode, keyrecord_t *record) {
-    return QS_tapping_permissive_hold;
+    return QS_tapping_permissive_hold && qs_permissive_hold_allowed_user(keycode, record);
 }
 
 bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {

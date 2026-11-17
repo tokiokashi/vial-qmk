@@ -83,6 +83,13 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     return true;
 }
 
+// Permissive hold would turn a quick X held over a kana key into Ctrl, so a chord
+// such as hi+yo for hyo could only be typed by pressing yo first. While typing
+// Naginata a tap-hold key becomes a modifier only after the tapping term.
+bool qs_permissive_hold_allowed_user(uint16_t keycode, keyrecord_t *record) {
+    return !(naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()));
+}
+
 bool kana_mode_combo_allowed(combo_class_t c) {
     switch (c) {
         case COMBO_ALWAYS:
