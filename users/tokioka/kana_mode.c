@@ -5,6 +5,10 @@
 
 #include "kana_mode.h"
 #include "naginata.h"
+#include "keymap_introspection.h"
+
+#define NG_POS_V 23
+#define NG_POS_M 26
 
 typedef union {
     uint32_t raw;
@@ -88,6 +92,24 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
 // Naginata a tap-hold key becomes a modifier only after the tapping term.
 bool qs_permissive_hold_allowed_user(uint16_t keycode, keyrecord_t *record) {
     return !(naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()));
+}
+
+// V and M are tap-hold Shift keys in the .vil. While typing Naginata they are
+// plain kana keys on layer 0, so a key held inside a chord never becomes Shift.
+// The rest follows the default keymap_key_to_keycode; no board here has
+// encoder or DIP switch maps.
+uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
+#ifdef VIAL_ENABLE
+    if (vial_unlock_in_progress) return KC_NO;
+    if (key.row == VIAL_MATRIX_MAGIC && key.col == VIAL_MATRIX_MAGIC) return g_vial_magic_keycode_override;
+#endif
+    if (key.row >= MATRIX_ROWS || key.col >= MATRIX_COLS) return KC_NO;
+    uint16_t keycode = keycode_at_keymap_location(layer, key.row, key.col);
+    if (layer == 0 && naginata_on() && IS_QK_MOD_TAP(keycode)) {
+        int8_t pos = ng_pos(key);
+        if (pos == NG_POS_V || pos == NG_POS_M) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+    }
+    return keycode;
 }
 
 bool kana_mode_combo_allowed(combo_class_t c) {

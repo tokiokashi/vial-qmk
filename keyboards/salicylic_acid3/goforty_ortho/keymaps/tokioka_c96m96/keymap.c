@@ -86,7 +86,7 @@ void keyboard_post_init_user(void) { kana_mode_init(); }
 
 // Alpha keys of the GoForty matrix (GoForty_outer.vil) as positions
 // Q..P = 0..9, A..; = 10..19, Z../ = 20..29.
-static int8_t ng_pos(keypos_t k) {
+int8_t ng_pos(keypos_t k) {
     if (k.row > 2) return -1;
     if (k.col <= 4) return k.row * 10 + k.col;
     if (k.col >= 8 && k.col <= 12) return k.row * 10 + 5 + k.col - 8;

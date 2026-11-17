@@ -74,7 +74,7 @@ bool caps_word_press_user(uint16_t keycode) {
 void keyboard_post_init_user(void) { kana_mode_init(); }
 
 // Alpha keys of the ID75 matrix as positions Q..P = 0..9, A..; = 10..19, Z../ = 20..29.
-static int8_t ng_pos(keypos_t k) {
+int8_t ng_pos(keypos_t k) {
     if (k.row < 1 || k.row > 3) return -1;
     if (k.col >= 1 && k.col <= 5) return (k.row - 1) * 10 + k.col - 1;
     if (k.col >= 9 && k.col <= 13) return (k.row - 1) * 10 + 5 + k.col - 9;

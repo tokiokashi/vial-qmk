@@ -196,7 +196,9 @@ static bool pressed_close(uint8_t a, uint8_t b, uint16_t now) {
 static bool is_yoon_pair(uint8_t x, uint8_t y) { return (gen_of(x) && yoon_vowel(y)) || (gen_of(y) && yoon_vowel(x)); }
 
 // Romaji for a two-key chord of x and y, or NULL.
-static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
+static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf, uint16_t now) {
+    // M then V gives the comma and V then M the period, in the order pressed.
+    if (daku == 0 && ((x == P_V && y == P_M) || (x == P_M && y == P_V))) return pressed_before(P_M, P_V, now) ? "," : ".";
     // ! and ? on the bottom row, like the combos of TK on-choku.
     if (daku == 0 && ((x == P_CM && y == P_DT) || (x == P_DT && y == P_CM))) return "!";
     if (daku == 0 && ((x == P_DT && y == P_SL) || (x == P_SL && y == P_DT))) return "?";
@@ -330,7 +332,7 @@ static void resolve(uint8_t x, uint16_t now) {
     for (uint8_t y = 0; y < NG_KEYS; y++) {
         if (y == x || is_shift(y) || !keys[y].live || keys[y].used) continue;
         if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) continue;
-        const char *r = pair_romaji(x, y, daku, buf);
+        const char *r = pair_romaji(x, y, daku, buf, now);
         if (!r) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         skip[y] = true;

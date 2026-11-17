@@ -21,3 +21,6 @@ void kana_mode_init(void);
 // Returns false when the key was used up.
 bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos);
 bool kana_mode_combo_allowed(combo_class_t c);
+
+// Each keymap gives the QWERTY position of a key (see kana_mode_process_record), or -1.
+int8_t ng_pos(keypos_t k);
