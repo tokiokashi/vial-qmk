@@ -11,6 +11,9 @@
 
 bool    ng_post_shift  = true;
 uint8_t ng_overlap_pct = 66;
+// A youon pair also counts when its two keys go down within this many ms, as a
+// QMK combo does, so the key pressed first need not be covered for long.
+uint8_t ng_yoon_gap_ms = 50;
 
 enum {
     P_Q, P_W, P_E, P_R, P_T, P_Y, P_U, P_I, P_O, P_P,
@@ -184,6 +187,14 @@ static const char *yoon_vowel(uint8_t p) {
     }
 }
 
+// Whether a and b went down within ng_yoon_gap_ms of each other and overlap.
+static bool pressed_close(uint8_t a, uint8_t b, uint16_t now) {
+    uint16_t sa = start_ago(&keys[a], now), sb = start_ago(&keys[b], now);
+    return overlap(a, b, now) > 0 && (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
+}
+
+static bool is_yoon_pair(uint8_t x, uint8_t y) { return (gen_of(x) && yoon_vowel(y)) || (gen_of(y) && yoon_vowel(x)); }
+
 // Romaji for a two-key chord of x and y, or NULL.
 static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
     // ! and ? on the bottom row, like the combos of TK on-choku.
@@ -318,7 +329,7 @@ static void resolve(uint8_t x, uint16_t now) {
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
         if (y == x || is_shift(y) || !keys[y].live || keys[y].used) continue;
-        if (!covers(y, x, now)) continue;
+        if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) continue;
         const char *r = pair_romaji(x, y, daku, buf);
         if (!r) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;

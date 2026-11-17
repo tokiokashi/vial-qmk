@@ -10,6 +10,7 @@
 
 // Settings the keymap may change at run time.
 extern bool    ng_post_shift; // a shift pressed after the kana still applies
+extern uint8_t ng_yoon_gap_ms; // a youon pair pressed within this many ms is a chord
 extern uint8_t ng_overlap_pct; // how much of a key's press a shift must cover, in percent
 
 void ng_press(uint8_t pos, uint16_t time);
