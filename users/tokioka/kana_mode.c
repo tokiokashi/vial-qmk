@@ -140,6 +140,18 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     return true;
 }
 
+// With Ctrl, Alt or GUI already on when V or M goes down, that key keeps its
+// Shift for shortcuts. Decided at the press, so its release matches.
+static bool vm_keep_shift[2];
+
+bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        int8_t pos = ng_pos(record->event.key);
+        if (pos == NG_POS_V || pos == NG_POS_M) vm_keep_shift[pos == NG_POS_M] = get_mods() & MOD_MASK_CAG;
+    }
+    return true;
+}
+
 // V and M are tap-hold Shift keys in the .vil. While typing Naginata they are
 // plain kana keys on layer 0, so a key held inside a chord never becomes Shift.
 // The rest follows the default keymap_key_to_keycode; no board here has
@@ -153,7 +165,7 @@ uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
     uint16_t keycode = keycode_at_keymap_location(layer, key.row, key.col);
     if (layer == 0 && naginata_on() && IS_QK_MOD_TAP(keycode)) {
         int8_t pos = ng_pos(key);
-        if (pos == NG_POS_V || pos == NG_POS_M) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+        if ((pos == NG_POS_V && !vm_keep_shift[0]) || (pos == NG_POS_M && !vm_keep_shift[1])) return QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
     }
     return keycode;
 }
