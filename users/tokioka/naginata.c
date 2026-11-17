@@ -20,7 +20,7 @@ enum {
 
 // "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "ro", "ki", "te", "si", "ri",  "sa", "ta", "su", "ru", "he",
+    "#X", "ki", "te", "si", "ri",  "sa", "ta", "su", "ru", "he",
     "e",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "xtu",
     "ho", "hi", "ha", "ko", "so",  "o",  "na", "to", "ra", "re",
 };
@@ -43,9 +43,9 @@ static const char *const handaku_face[NG_KEYS] = {
 };
 
 // Small kana, for the key after the middle-finger shift + Q.
-// lka and lke are entries of tokioka's own romaji table. W gives Esc.
+// lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
-    NULL,  "#X",  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
+    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
     "xe",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "xtu",
     NULL,  NULL,  NULL,  NULL,  NULL,   "xo",  NULL,  NULL,  "xwa", NULL,
 };
@@ -97,8 +97,12 @@ typedef struct {
     uint16_t t_down, t_up;
     bool     down;
     bool     live; // has a press that has not been decided yet
-    bool     used; // served as a shift at least once, so it outputs nothing itself
+    bool     used;    // served as a shift at least once, so it outputs nothing itself
+    bool     touched; // another key was down at some point during this press
 } ngkey_t;
+
+// Q alone gives Esc only when tapped within this many ms.
+#define NG_ESC_TERM 200
 
 static ngkey_t keys[NG_KEYS];
 static bool  small_next;
@@ -351,6 +355,9 @@ static void resolve(uint8_t x, uint16_t now) {
     }
     // A blank on the shift face gives the base kana; the middle finger stays a shift.
     if (!r) r = base_face[x];
+    // Q is Esc only for a short tap that no other key overlapped, so a missed
+    // Q chord or a long press does not throw away the text being composed.
+    if (x == P_Q && r == base_face[P_Q] && (keys[P_Q].touched || duration(P_Q, now) > NG_ESC_TERM)) r = NULL;
 
     for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
     flush_earlier(x, now, skip);
@@ -362,6 +369,11 @@ void ng_press(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     if (keys[pos].live) resolve(pos, time);
     keys[pos] = (ngkey_t){.t_down = time, .down = true, .live = true};
+    for (uint8_t q = 0; q < NG_KEYS; q++) {
+        if (q == pos || !keys[q].down) continue;
+        keys[q].touched   = true;
+        keys[pos].touched = true;
+    }
 }
 
 // Whether a key that p may still shift is held: a kana key, or a shift key pressed after p.
@@ -397,6 +409,10 @@ void ng_release(uint8_t pos, uint16_t time) {
 }
 
 void ng_flush(uint16_t time) {
+    // A key outside the engine came while these were held.
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (keys[p].down) keys[p].touched = true;
+    }
     for (;;) {
         int first = -1;
         for (uint8_t p = 0; p < NG_KEYS; p++) {
