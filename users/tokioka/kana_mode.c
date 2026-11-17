@@ -307,16 +307,15 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     return true;
 }
 
-// V, M, comma and period are tap-hold keys in the .vil (Shift, Alt, Ctrl). While
-// typing Naginata they are plain kana keys on layer 0, so a key held inside a
-// chord never becomes its modifier, and comma and period reach the engine at
-// once for ! and ?. Held, they still become modifiers through take_held_mods
-// and the inner-key rule. With Ctrl, Alt or GUI already on when one goes down,
-// it keeps its tap-hold for shortcuts, decided at the press so its release
+// The bottom row has tap-hold keys in the .vil (Ctrl, Alt, Shift). While typing
+// Naginata they are plain kana keys on layer 0, so a key pressed last in a
+// chord, such as hi in bi-yo after a and su, never waits out the tapping term
+// and becomes its modifier, and comma and period reach the engine at once for
+// ! and ?. Held, they still become modifiers through take_held_mods and the
+// inner-key rule. With Ctrl, Alt or GUI already on when one goes down, it
+// keeps its tap-hold for shortcuts, decided at the press so its release
 // matches.
-#define NG_POS_CM 27
-#define NG_POS_DT 28
-static bool is_plain_pos(int8_t p) { return is_vm(p) || p == NG_POS_CM || p == NG_POS_DT; }
+static bool is_plain_pos(int8_t p) { return p >= 20 && p < NG_KEYS; }
 static bool keep_tap_hold[NG_KEYS];
 
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
