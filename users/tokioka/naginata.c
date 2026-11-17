@@ -301,14 +301,19 @@ static void resolve(uint8_t x, uint16_t now) {
     for (uint8_t y = 0; y < NG_KEYS; y++) {
         uint8_t k = x == P_Q ? y : x;
         if (y == x || (x != P_Q && y != P_Q) || !small_face[k]) continue;
-        if (!keys[y].live || keys[y].used) continue;
+        // A held Q stays a shift for small kana, like the continuous shift.
+        if (!keys[y].live || (keys[y].used && y != P_Q)) continue;
         // Q is held first, and the other key's press lies mostly within Q's.
         if (!pressed_before(P_Q, k, now)) continue;
         if (!covers(y, x, now) && !(!keys[y].down && covers(x, y, now))) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         skip[y] = true;
         flush_earlier(x, now, skip);
-        keys[y].live = false;
+        if (y == P_Q) {
+            keys[y].used = true;
+        } else {
+            keys[y].live = false;
+        }
         for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
         small_next = false;
         emit(small_face[k]);
@@ -424,7 +429,8 @@ void ng_press(uint8_t pos, uint16_t time) {
 // Whether a key that p may still shift is held: a kana key, or a shift key pressed after p.
 static bool shiftable_key_down(uint8_t p, uint16_t now) {
     for (uint8_t q = 0; q < NG_KEYS; q++) {
-        if (q == p || !keys[q].live || !keys[q].down) continue;
+        // A used key, such as a Q already giving small kana, gives no kana to shift.
+        if (q == p || !keys[q].live || !keys[q].down || keys[q].used) continue;
         if (!is_shift(q) || !pressed_before(q, p, now)) return true;
     }
     return false;
@@ -449,7 +455,9 @@ void ng_release(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
     keys[pos].t_up = time;
-    if (!is_shift(pos)) resolve(pos, time);
+    // A shift key pressed while Q is held is a kana key for the small kana.
+    bool q_small = keys[P_Q].live && keys[P_Q].down && pressed_before(P_Q, pos, time) && small_face[pos];
+    if (!is_shift(pos) || q_small) resolve(pos, time);
     settle(time);
 }
 
