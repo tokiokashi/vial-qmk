@@ -103,11 +103,12 @@ static void inner_settle(void) {
     ng_release(p, inner_time);
 }
 
-// Tapping V or M and then holding the same key alone gives its Shift, for
-// capitals; the first tap's ko or na is erased. Released, or joined by another
-// key, before VM_HOLD_MS, it is the half-dakuten key as usual, as in ko-pi.
+// Tapping V or M and pressing the same key again gives its Shift for the next
+// kana key pressed while it is held, for capitals; the first tap's ko or na is
+// erased then. Released alone, it gives its kana, so ko-ko and na-na stay, and
+// the other one of V and M still gives the comma or period. Its half dakuten
+// in that spot, such as ko-pa, needs the other hand's key.
 #define VM_TAP_MS 200
-#define VM_HOLD_MS 200
 
 static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1;
 static uint16_t vm_time;
@@ -117,6 +118,15 @@ static bool any_kana_key_down(void) {
         if (ng_down(p)) return true;
     }
     return false;
+}
+
+static void vm_to_shift(int8_t p) {
+    uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
+    if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
+    ng_cancel(p);
+    tap_code(KC_BSPC);
+    retro_mods[p] = mod_tap_mods(kc);
+    register_mods(retro_mods[p]);
 }
 
 // Called for every key event before the engine sees it.
@@ -130,6 +140,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         }
         return;
     }
+    if (vm_hold >= 0 && pos >= 0 && !is_vm(pos)) vm_to_shift(vm_hold);
     bool alone = is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
     vm_hold    = alone && pos == vm_tap && TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
     vm_first   = alone ? pos : -1;
@@ -137,21 +148,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
     vm_time    = time;
 }
 
-static void vm_hold_task(void) {
-    if (vm_hold < 0 || timer_elapsed(vm_time) < VM_HOLD_MS) return;
-    int8_t p = vm_hold;
-    vm_hold  = -1;
-    vm_first = -1;
-    uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
-    if (!ng_down(p) || !IS_QK_MOD_TAP(kc)) return;
-    ng_cancel(p);
-    tap_code(KC_BSPC);
-    retro_mods[p] = mod_tap_mods(kc);
-    register_mods(retro_mods[p]);
-}
-
 void housekeeping_task_user(void) {
-    vm_hold_task();
     if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
     int8_t p = inner_pos, h = inner_holder;
     inner_pos = -1;
