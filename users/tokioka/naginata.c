@@ -31,7 +31,7 @@ static const char *const base_face[NG_KEYS] = {
 };
 static const char *const shift_face[NG_KEYS] = {
     "#S", "ni", "me", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
-    "se", "mo", "ma", "mi", "ti",  "ya", "no", "ma", "tu", "hu",
+    "se", "mo", "mi", "ma", "ti",  "ya", "no", "mi", "tu", "hu",
     NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
@@ -61,7 +61,7 @@ typedef struct {
 } gen_t;
 static const gen_t gens[] = {
     {P_E, "ky", "gy", NULL}, {P_R, "sy", "zy", NULL}, {P_G, "ty", "dy", NULL}, {P_X, "hy", "by", "py"},
-    {P_F, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_W, "ny", NULL, NULL},
+    {P_T, "ry", NULL, NULL}, {P_W, "ny", NULL, NULL},
 };
 
 // Gairaion: a marker, a generator key and a vowel key pressed together.
@@ -364,8 +364,35 @@ static void resolve(uint8_t x, uint16_t now) {
     }
     small_next = false;
 
-    // Two-key chords: youon and vu.
+    // Mi sits on both middle-finger shift keys together, so its youon is those
+    // two keys and the vowel key.
     char buf[8];
+    if (daku == 0 && chuu) {
+        uint8_t v = NG_KEYS;
+        int     n = is_chuu(x);
+        for (int i = 0; i < nmods; i++) n += is_chuu(mods[i]);
+        bool both = n >= 2;
+        if (yoon_vowel(x)) {
+            v = x;
+        } else if (is_chuu(x)) {
+            for (uint8_t y = 0; y < NG_KEYS; y++) {
+                if (yoon_vowel(y) && keys[y].live && !keys[y].used && covers(y, x, now)) v = y;
+            }
+        }
+        if (both && v < NG_KEYS) {
+            for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
+            skip[v] = true;
+            flush_earlier(x, now, skip);
+            if (v != x) keys[v].live = false;
+            for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
+            strcpy(buf, "my");
+            strcat(buf, yoon_vowel(v));
+            emit(buf);
+            return;
+        }
+    }
+
+    // Two-key chords: youon and vu.
     for (uint8_t y = 0; y < NG_KEYS; y++) {
         if (y == x || (is_shift(y) && !is_vm_pair(x, y)) || !keys[y].live || keys[y].used) continue;
         if (is_mark_pair(x, y)) {
