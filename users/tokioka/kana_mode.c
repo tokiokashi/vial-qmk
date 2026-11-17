@@ -73,8 +73,9 @@ static void take_held_mods(uint16_t time) {
 // A kana key released inside a held tap-hold key, such as yo inside hi, waits
 // this long. If the tap-hold key is still held then, it becomes its modifier
 // and the inner key is typed with it (Ctrl+I); otherwise they make kana (hyo).
-// V and M are left out: they are the half-dakuten shift and are held long.
-// So are the , . and / pairs for ! and ?, as , and . are tap-hold keys.
+// V and M are left out as holders: they are the half-dakuten shift and are held
+// long. Held with a holder, they become Shift along with it (Ctrl+Shift+T).
+// The , . and / pairs for ! and ? are left out too, as , and . are tap-hold keys.
 #define INNER_WAIT_MS 60
 
 static int8_t   inner_pos = -1, inner_holder = -1;
@@ -110,12 +111,10 @@ void housekeeping_task_user(void) {
         ng_release(p, inner_time);
         return;
     }
-    uint16_t now = timer_read();
-    ng_cancel(h);
+    // The holder and any other held tap-hold key, V and M among them for
+    // Ctrl+Shift, become their modifiers.
     ng_forget(p);
-    if (ng_pending()) ng_flush(now);
-    retro_mods[h] = mod_tap_mods(keycode_at_keymap_location(0, key_at[h].row, key_at[h].col));
-    register_mods(retro_mods[h]);
+    take_held_mods(timer_read());
     // Type the inner key again through the keymap, so key overrides apply.
     action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, true));
     action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, false));

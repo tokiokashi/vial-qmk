@@ -355,8 +355,9 @@ static void resolve(uint8_t x, uint16_t now) {
 
     // J+H alone turns the IME on and F+G alone turns it off, like the hj and fg
     // combos of TK on-choku. Their dakuten (gu, di) are typed with the other hand.
-    if (nmods == 1 && x == P_H && mods[0] == P_J) r = "#J";
-    if (nmods == 1 && x == P_G && mods[0] == P_F) r = "#E";
+    // Not in a continuous dakuten shift, where they are gu and di.
+    if (nmods == 1 && x == P_H && mods[0] == P_J && !keys[P_J].used) r = "#J";
+    if (nmods == 1 && x == P_G && mods[0] == P_F && !keys[P_F].used) r = "#E";
 
     // Two shift keys together: x may be the shift and the other key the kana.
     if (!r && is_shift(x)) {
@@ -479,7 +480,7 @@ void ng_flush(uint16_t time) {
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         // Held keys are finished; their release must not output again. A held
         // shift stays a shift, so Backspace in a continuous shift keeps it on.
-        keys[p].live = keys[p].down && is_shift(p);
+        keys[p].live = keys[p].live && keys[p].down && is_shift(p);
         keys[p].used = keys[p].down;
     }
 }
