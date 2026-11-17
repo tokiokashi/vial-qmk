@@ -188,6 +188,11 @@ static bool pressed_close(uint8_t a, uint8_t b, uint16_t now) {
     return overlap(a, b, now) > 0 && (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
 }
 
+// The pairs for ! and ? on the bottom row.
+static bool is_mark_pair(uint8_t x, uint8_t y) {
+    return (x == P_DT && (y == P_CM || y == P_SL)) || (y == P_DT && (x == P_CM || x == P_SL));
+}
+
 static bool is_yoon_pair(uint8_t x, uint8_t y) { return (gen_of(x) && yoon_vowel(y)) || (gen_of(y) && yoon_vowel(x)); }
 
 // Romaji for a two-key chord of x and y, or NULL.
@@ -327,7 +332,12 @@ static void resolve(uint8_t x, uint16_t now) {
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
         if (y == x || (is_shift(y) && !is_vm_pair(x, y)) || !keys[y].live || keys[y].used) continue;
-        if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) continue;
+        if (is_mark_pair(x, y)) {
+            // ! and ? are judged by press time alone, like a QMK combo.
+            if (!pressed_close(x, y, now)) continue;
+        } else if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) {
+            continue;
+        }
         const char *r = pair_romaji(x, y, daku, buf, now);
         if (!r) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
