@@ -367,9 +367,13 @@ static void resolve(uint8_t x, uint16_t now) {
             if (!r2) continue;
             skip[m] = true;
             flush_earlier(x, now, skip);
-            // A held shift already used, such as F after da, gives its kana
-            // again (F+J = ga) and stays a shift.
-            if (!keys[m].used) keys[m].live = false;
+            // A shift still held, such as F under repeated J taps, gives its kana
+            // (F+J = ga) and stays a shift; a released one is used up.
+            if (keys[m].down) {
+                keys[m].used = true;
+            } else {
+                keys[m].live = false;
+            }
             emit(r2);
             return;
         }
