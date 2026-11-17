@@ -111,7 +111,8 @@ static void inner_settle(void) {
 //   capitalized word.
 // A key pressed sooner makes kana as usual: a half dakuten chord and the
 // continuous shift after it, and the comma or period with the other one of V
-// and M. Released alone, the key gives its kana, so ko-ko and na-na stay.
+// and M. Released alone sooner, the key gives its kana, so ko-ko and na-na
+// stay; released alone later, it gives nothing.
 #define VM_TAP_MS 200
 #define VM_WORD_MS 150
 
@@ -164,6 +165,8 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
             vm_word_pending = 0;
         }
         if (pos >= 0 && pos == vm_first) {
+            // Held alone past VM_WORD_MS, it was waiting for a capital.
+            if (TIMER_DIFF_16(time, vm_time) >= VM_WORD_MS) ng_cancel(pos);
             vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
             vm_first = -1;
             vm_time  = time;
