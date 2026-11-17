@@ -21,9 +21,9 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
+// "#S": next kana small, "#A": next key an arrow, "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "te", "si", "ri",  NULL, "ta", "su", "ru", "he",
+    "#X", "ki", "te", "si", "ri",  "#A", "ta", "su", "ru", "he",
     "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
     "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
 };
@@ -107,6 +107,19 @@ typedef struct {
 
 static ngkey_t keys[NG_KEYS];
 static bool  small_next;
+static bool  arrow_next;
+
+// Y and then H, J, K or L give the romaji that tokioka's own romaji table turns
+// into the arrows, as x and then k, t, n or s do on the Onishi layout.
+static const char *arrow_romaji(uint8_t p) {
+    switch (p) {
+        case P_H: return "xk"; // left arrow
+        case P_J: return "xt"; // down arrow
+        case P_K: return "xn"; // up arrow
+        case P_L: return "xs"; // right arrow
+        default: return NULL;
+    }
+}
 
 static bool is_chuu(uint8_t p) { return p == P_D || p == P_K; }
 static bool is_daku(uint8_t p) { return p == P_F || p == P_J; }
@@ -146,6 +159,9 @@ static void emit(const char *r) {
     if (r[0] == '#') {
         if (r[1] == 'S') {
             small_next = true;
+        } else if (r[1] == 'A') {
+            small_next = false;
+            arrow_next = true;
         } else if (r[1] == 'X') {
             small_next = false;
             ng_tap_esc();
@@ -259,6 +275,8 @@ static void resolve(uint8_t x, uint16_t now) {
     if (!keys[x].live) return;
     keys[x].live = false;
     if (keys[x].used) return;
+    bool arrow = arrow_next;
+    arrow_next = false;
 
     bool    skip[NG_KEYS] = {false};
     uint8_t mods[4];
@@ -321,6 +339,14 @@ static void resolve(uint8_t x, uint16_t now) {
     }
 
     // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
+    if (arrow && arrow_romaji(x)) {
+        for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
+        flush_earlier(x, now, skip);
+        for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
+        small_next = false;
+        emit(arrow_romaji(x));
+        return;
+    }
     if (small_next && small_face[x]) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
