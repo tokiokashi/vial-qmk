@@ -29,6 +29,9 @@ void ng_release(uint8_t pos, uint16_t time);
 // Output every key still waiting, as if all keys were released now.
 void ng_flush(uint16_t time);
 bool ng_pending(void);
+// The letter to put before [ or ] typed next, z after Y and s after the
+// middle-finger shift + Y, or 0; clears it. [ and ] come from outside the engine.
+char ng_take_bracket_prefix(void);
 
 // Provided by the caller.
 void ng_send_romaji(const char *romaji);

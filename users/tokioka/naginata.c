@@ -21,14 +21,16 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// "#S": next kana small, "#E": IME off, "#J": IME on, "#X": Esc.
+// "#S": next kana small, "#A": next key an arrow, z[ z] or a circled digit,
+// "#B": next [ ] as s[ s],
+// "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "te", "si", "ri",  NULL, "ta", "su", "ru", "he",
+    "#X", "ki", "te", "si", "ri",  "#A", "ta", "su", "ru", "he",
     "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
     "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "me", "ni", "ne", NULL,  NULL, "e",  "yo", "ro", "yu",
+    "#S", "me", "ni", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
     "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
     NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
 };
@@ -99,6 +101,7 @@ typedef struct {
     bool     live; // has a press that has not been decided yet
     bool     used;    // served as a shift at least once, so it outputs nothing itself
     bool     touched; // another key was down at some point during this press
+    bool     anchor;  // held kana key already shifted by shift taps inside its press
 } ngkey_t;
 
 // Q alone gives Esc only when tapped within this many ms.
@@ -106,6 +109,22 @@ typedef struct {
 
 static ngkey_t keys[NG_KEYS];
 static bool  small_next;
+static bool  arrow_next;
+// The letter put before [ and ] by the key outside the engine: z after Y, s
+// after the middle-finger shift + Y, or 0.
+static char bracket_prefix;
+
+// Y and then H, J, K or L give the romaji that tokioka's own romaji table turns
+// into the arrows, as x and then k, t, n or s do on the Onishi layout.
+static const char *arrow_romaji(uint8_t p) {
+    switch (p) {
+        case P_H: return "xk"; // left arrow
+        case P_J: return "xt"; // down arrow
+        case P_K: return "xn"; // up arrow
+        case P_L: return "xs"; // right arrow
+        default: return NULL;
+    }
+}
 
 static bool is_chuu(uint8_t p) { return p == P_D || p == P_K; }
 static bool is_daku(uint8_t p) { return p == P_F || p == P_J; }
@@ -145,6 +164,10 @@ static void emit(const char *r) {
     if (r[0] == '#') {
         if (r[1] == 'S') {
             small_next = true;
+        } else if (r[1] == 'A' || r[1] == 'B') {
+            small_next     = false;
+            arrow_next     = r[1] == 'A';
+            bracket_prefix = r[1] == 'A' ? 'z' : 's';
         } else if (r[1] == 'X') {
             small_next = false;
             ng_tap_esc();
@@ -258,6 +281,9 @@ static void resolve(uint8_t x, uint16_t now) {
     if (!keys[x].live) return;
     keys[x].live = false;
     if (keys[x].used) return;
+    bool arrow     = arrow_next;
+    arrow_next     = false;
+    bracket_prefix = 0;
 
     bool    skip[NG_KEYS] = {false};
     uint8_t mods[4];
@@ -320,6 +346,14 @@ static void resolve(uint8_t x, uint16_t now) {
     }
 
     // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
+    if (arrow && arrow_romaji(x)) {
+        for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
+        flush_earlier(x, now, skip);
+        for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
+        small_next = false;
+        emit(arrow_romaji(x));
+        return;
+    }
     if (small_next && small_face[x]) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
@@ -456,10 +490,75 @@ static void settle(uint16_t now) {
     }
 }
 
+static bool in_gairai(const gairai_t *g, uint8_t p);
+
+// A shift key tapped inside the press of a held kana key, while no other kana
+// key is held, shifts that kana at once, as Kikyo did: holding u (L) and tapping
+// D then F gives tsu then du, also when D and F roll. The kana key then gives
+// nothing on release.
+static bool tap_inside_kana(uint8_t pos, uint16_t now) {
+    if (!is_shift(pos) || !keys[pos].live || keys[pos].used) return false;
+    int k = -1;
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (p == pos || !keys[p].down || is_shift(p)) continue;
+        if (k >= 0 || p == P_Q) return false;
+        k = p;
+    }
+    if (k < 0 || !keys[k].live || (keys[k].used && !keys[k].anchor)) return false;
+    uint16_t sk = start_ago(&keys[k], now);
+    if (sk <= start_ago(&keys[pos], now)) return false;
+    // Taps are the shift keys pressed inside k that are still to be decided.
+    bool tap[NG_KEYS] = {false};
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (!is_shift(p) || !keys[p].live || keys[p].used) continue;
+        if (start_ago(&keys[p], now) < sk) {
+            tap[p] = true;
+        } else if (keys[p].down) {
+            // A shift held from before k already shifts it.
+            return false;
+        }
+    }
+    // A gairaion chord, such as M inside the fu key with J held, is left alone.
+    for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
+        const gairai_t *g = &gairai[i];
+        if (!in_gairai(g, (uint8_t)k) || !in_gairai(g, pos)) continue;
+        for (uint8_t p = 0; p < NG_KEYS; p++) {
+            if (tap[p] && p != pos && in_gairai(g, p)) return false;
+        }
+    }
+    bool skip[NG_KEYS] = {false};
+    skip[k] = true;
+    for (uint8_t p = 0; p < NG_KEYS; p++) skip[p] = skip[p] || tap[p];
+    flush_earlier((uint8_t)k, now, skip);
+    // Each tap shifts k in press order, pos and the taps before it.
+    for (;;) {
+        int first = -1;
+        for (uint8_t p = 0; p < NG_KEYS; p++) {
+            if (!tap[p] || start_ago(&keys[p], now) < start_ago(&keys[pos], now)) continue;
+            if (first < 0 || pressed_before(p, (uint8_t)first, now)) first = p;
+        }
+        if (first < 0) break;
+        uint8_t     t = (uint8_t)first;
+        const char *r = single((uint8_t)k, is_daku(t) ? 1 : is_handaku(t) ? 2 : 0, is_chuu(t));
+        tap[t]         = false;
+        keys[t].live   = false;
+        keys[t].used   = true;
+        if (r) emit(r);
+    }
+    keys[k].used   = true;
+    keys[k].anchor = true;
+    small_next     = false;
+    return true;
+}
+
 void ng_release(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
     keys[pos].t_up = time;
+    if (tap_inside_kana(pos, time)) {
+        settle(time);
+        return;
+    }
     // A shift key pressed while Q is held is a kana key for the small kana.
     bool q_small = keys[P_Q].live && keys[P_Q].down && pressed_before(P_Q, pos, time) && small_face[pos];
     if (!is_shift(pos) || q_small) resolve(pos, time);
@@ -487,6 +586,13 @@ void ng_flush(uint16_t time) {
         keys[p].live = keys[p].live && keys[p].down && is_shift(p);
         keys[p].used = keys[p].down;
     }
+}
+
+char ng_take_bracket_prefix(void) {
+    char c         = bracket_prefix;
+    bracket_prefix = 0;
+    arrow_next     = false;
+    return c;
 }
 
 bool ng_pending(void) {
