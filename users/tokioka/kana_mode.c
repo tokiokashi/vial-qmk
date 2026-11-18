@@ -50,7 +50,7 @@ void kana_mode_init(void) {
 static keypos_t key_at[NG_KEYS];
 static uint8_t  retro_mods[NG_KEYS];
 
-#define TAKE_MODS_WAIT_MS 20
+#define TAKE_MODS_WAIT_MS 1
 
 static uint8_t mod_tap_mods(uint16_t keycode) {
     uint8_t m = QK_MOD_TAP_GET_MODS(keycode);
