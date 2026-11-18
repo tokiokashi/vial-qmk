@@ -364,6 +364,20 @@ static void resolve(uint8_t x, uint16_t now) {
     }
     small_next = false;
 
+    // G then F, or H then J, pressed within the youon gap is the IME key too,
+    // as F+G and J+H are when the shift goes first (below).
+    if (nmods == 0 && (x == P_G || x == P_F || x == P_H || x == P_J)) {
+        uint8_t kana = x == P_F || x == P_G ? P_G : P_H, shift = kana == P_G ? P_F : P_J;
+        uint8_t y    = x == kana ? shift : kana;
+        if (keys[y].live && !keys[y].used && pressed_before(kana, shift, now) && pressed_close(kana, shift, now)) {
+            skip[y] = true;
+            flush_earlier(x, now, skip);
+            keys[y].live = false;
+            emit(kana == P_G ? "#E" : "#J");
+            return;
+        }
+    }
+
     // Two-key chords: youon and vu.
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
@@ -505,6 +519,8 @@ static bool tap_inside_kana(uint8_t pos, uint16_t now) {
         k = p;
     }
     if (k < 0 || !keys[k].live || (keys[k].used && !keys[k].anchor)) return false;
+    // J inside H and F inside G are the IME keys, in either order.
+    if (!keys[k].used && ((k == P_H && pos == P_J) || (k == P_G && pos == P_F))) return false;
     uint16_t sk = start_ago(&keys[k], now);
     if (sk <= start_ago(&keys[pos], now)) return false;
     // Taps are the shift keys pressed inside k that are still to be decided.
