@@ -133,9 +133,11 @@ static uint16_t vm_time;
 
 // One letter typed in that Shift and the key let go: the word goes on in
 // English, as in Tokyo, the keys passing as they are until Enter, Esc or an
-// IME key (hj, fg). Two or more letters, as in USB, go back to kana at once.
+// IME key (hj, fg), or until Backspace has erased all typed in it. Two or
+// more letters, as in USB, go back to kana at once.
 static uint8_t vm_word_letters;
 static bool    eng_word;
+static int16_t eng_len;
 
 static bool any_kana_key_down(void) {
     for (uint8_t p = 0; p < NG_KEYS; p++) {
@@ -187,6 +189,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         if (pos >= 0 && pos == vm_word) {
             vm_word  = -1;
             eng_word = vm_word_letters == 1;
+            eng_len  = 1;
         }
         if (pos >= 0 && pos == vm_first) {
             vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
@@ -256,7 +259,13 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         uint16_t k = keycode;
         if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
         if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
-        if (k == KC_ENT || k == KC_ESC) eng_word = false;
+        if (k == KC_ENT || k == KC_ESC) {
+            eng_word = false;
+        } else if (k == KC_BSPC) {
+            if (--eng_len <= 0) eng_word = false;
+        } else if (IS_BASIC_KEYCODE(k) && !IS_MODIFIER_KEYCODE(k)) {
+            eng_len++;
+        }
     }
 
     lone_track(pos, pressed, time);
