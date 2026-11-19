@@ -133,11 +133,11 @@ static uint16_t vm_time;
 
 // One letter typed in that Shift and the key let go: the word goes on in
 // English, as in Tokyo, the keys passing as they are until Enter, Esc, an IME
-// key (hj, fg), Tab or a shortcut, or until Backspace has erased all
-// typed in it. Two or more letters, as in USB, go back to kana at once.
+// key (hj, fg), Tab or a shortcut, or until the cursor is left of the capital.
+// Two or more letters, as in USB, go back to kana at once.
 static uint8_t vm_word_letters;
 static bool    eng_word;
-static int16_t eng_len;
+static int16_t eng_len, eng_pos;
 
 static bool any_kana_key_down(void) {
     for (uint8_t p = 0; p < NG_KEYS; p++) {
@@ -190,6 +190,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
             vm_word  = -1;
             eng_word = vm_word_letters == 1;
             eng_len  = 1;
+            eng_pos  = 1;
         }
         if (pos >= 0 && pos == vm_first) {
             vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
@@ -260,15 +261,31 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
         if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
         // Enter and Esc end the word. Tab and shortcuts may move the focus
-        // away from it, so they end it too. The arrows do not, for fixing a
-        // letter in the word.
+        // away from it, so they end it too. The cursor is followed in the word
+        // as the IME does: back to kana once it is left of the capital, by
+        // Backspace, Left or Home.
         if (k == KC_ENT || k == KC_ESC || k == KC_TAB || ((get_mods() | get_oneshot_mods()) & MOD_MASK_CAG)) {
             eng_word = false;
         } else if (k == KC_BSPC) {
-            if (--eng_len <= 0) eng_word = false;
-        } else if (IS_BASIC_KEYCODE(k) && !IS_MODIFIER_KEYCODE(k) && !(k >= KC_RIGHT && k <= KC_UP)) {
+            if (eng_pos > 0) {
+                eng_pos--;
+                eng_len--;
+            }
+        } else if (k == KC_DEL) {
+            if (eng_pos < eng_len) eng_len--;
+        } else if (k == KC_LEFT) {
+            if (eng_pos > 0) eng_pos--;
+        } else if (k == KC_RIGHT) {
+            if (eng_pos < eng_len) eng_pos++;
+        } else if (k == KC_HOME) {
+            eng_pos = 0;
+        } else if (k == KC_END) {
+            eng_pos = eng_len;
+        } else if (IS_BASIC_KEYCODE(k) && !IS_MODIFIER_KEYCODE(k) && k != KC_UP && k != KC_DOWN) {
+            eng_pos++;
             eng_len++;
         }
+        if (eng_pos <= 0) eng_word = false;
     }
 
     lone_track(pos, pressed, time);
