@@ -133,7 +133,8 @@ static uint16_t vm_time;
 
 // One letter typed in that Shift and the key let go: the word goes on in
 // English, as in Tokyo, the keys passing as they are until Enter, Esc or an
-// IME key (hj, fg), or until Backspace has erased all typed in it. Two or
+// IME key (hj, fg), Tab, an arrow or a shortcut, or until Backspace has erased
+// all typed in it. Two or
 // more letters, as in USB, go back to kana at once.
 static uint8_t vm_word_letters;
 static bool    eng_word;
@@ -259,7 +260,9 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         uint16_t k = keycode;
         if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
         if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
-        if (k == KC_ENT || k == KC_ESC) {
+        // Enter and Esc end the word. Tab, the arrows and shortcuts may move
+        // the cursor or the focus away from it, so they end it too.
+        if (k == KC_ENT || k == KC_ESC || k == KC_TAB || (k >= KC_RIGHT && k <= KC_UP) || ((get_mods() | get_oneshot_mods()) & MOD_MASK_CAG)) {
             eng_word = false;
         } else if (k == KC_BSPC) {
             if (--eng_len <= 0) eng_word = false;
