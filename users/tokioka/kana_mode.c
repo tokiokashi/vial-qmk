@@ -132,10 +132,9 @@ static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1, vm_word = -1;
 static uint16_t vm_time;
 
 // One letter typed in that Shift and the key let go: the word goes on in
-// English, as in Tokyo, the keys passing as they are until Enter, Esc or an
-// IME key (hj, fg), Tab, an arrow or a shortcut, or until Backspace has erased
-// all typed in it. Two or
-// more letters, as in USB, go back to kana at once.
+// English, as in Tokyo, the keys passing as they are until Enter, Esc, an IME
+// key (hj, fg), Tab, an arrow or a shortcut, or until Backspace has erased all
+// typed in it. Two or more letters, as in USB, go back to kana at once.
 static uint8_t vm_word_letters;
 static bool    eng_word;
 static int16_t eng_len;
