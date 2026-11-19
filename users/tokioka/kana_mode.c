@@ -131,6 +131,14 @@ static bool     passed[NG_KEYS];
 static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1, vm_word = -1;
 static uint16_t vm_time;
 
+// One letter typed in that Shift and the key let go: the word goes on in
+// English, as in Tokyo, the keys passing as they are until Enter, Esc, an IME
+// key (hj, fg), Tab or a shortcut, or until the cursor is left of the capital.
+// Two or more letters, as in USB, go back to kana at once.
+static uint8_t vm_word_letters;
+static bool    eng_word;
+static int16_t eng_len, eng_pos;
+
 static bool any_kana_key_down(void) {
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         if (ng_down(p)) return true;
@@ -149,7 +157,8 @@ static void vm_word_task(void) {
     if (!ng_down(p) || !IS_QK_MOD_TAP(kc) || !naginata_on()) return;
     ng_cancel(p);
     tap_code(KC_BSPC);
-    vm_word       = p;
+    vm_word         = p;
+    vm_word_letters = 0;
     retro_mods[p] = mod_tap_mods(kc);
     register_mods(retro_mods[p]);
 }
@@ -177,7 +186,12 @@ static void lone_track(int8_t pos, bool pressed, uint16_t time) {
 static void vm_track(int8_t pos, bool pressed, uint16_t time) {
     if (!pressed) {
         if (pos == vm_hold) vm_hold = -1;
-        if (pos == vm_word) vm_word = -1;
+        if (pos >= 0 && pos == vm_word) {
+            vm_word  = -1;
+            eng_word = vm_word_letters == 1;
+            eng_len  = 1;
+            eng_pos  = 1;
+        }
         if (pos >= 0 && pos == vm_first) {
             vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
             vm_first = -1;
@@ -185,7 +199,8 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         }
         return;
     }
-    bool alone = is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
+    if (vm_word >= 0 && pos >= 0) vm_word_letters++;
+    bool alone = !eng_word && is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
     vm_hold    = alone && pos == vm_tap && TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
     vm_first   = alone ? pos : -1;
     vm_tap     = -1;
@@ -218,6 +233,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         case KC_LNG1:
         case KC_LNG2:
             if (pressed) {
+                eng_word = false;
                 ng_flush(time);
                 ime_on = keycode == KC_LNG1;
             }
@@ -238,6 +254,38 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
                 eeconfig_update_user(cfg.raw);
             }
             return false;
+    }
+
+    if (pressed && eng_word) {
+        uint16_t k = keycode;
+        if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
+        if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
+        // Enter and Esc end the word. Tab and shortcuts may move the focus
+        // away from it, so they end it too. The cursor is followed in the word
+        // as the IME does: back to kana once it is left of the capital, by
+        // Backspace, Left or Home.
+        if (k == KC_ENT || k == KC_ESC || k == KC_TAB || ((get_mods() | get_oneshot_mods()) & MOD_MASK_CAG)) {
+            eng_word = false;
+        } else if (k == KC_BSPC) {
+            if (eng_pos > 0) {
+                eng_pos--;
+                eng_len--;
+            }
+        } else if (k == KC_DEL) {
+            if (eng_pos < eng_len) eng_len--;
+        } else if (k == KC_LEFT) {
+            if (eng_pos > 0) eng_pos--;
+        } else if (k == KC_RIGHT) {
+            if (eng_pos < eng_len) eng_pos++;
+        } else if (k == KC_HOME) {
+            eng_pos = 0;
+        } else if (k == KC_END) {
+            eng_pos = eng_len;
+        } else if (IS_BASIC_KEYCODE(k) && !IS_MODIFIER_KEYCODE(k) && k != KC_UP && k != KC_DOWN) {
+            eng_pos++;
+            eng_len++;
+        }
+        if (eng_pos <= 0) eng_word = false;
     }
 
     lone_track(pos, pressed, time);
@@ -271,7 +319,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         return false;
     }
 
-    if (pos >= 0 && naginata_on() && on_kana_layer() && vm_word < 0 && !(get_mods() | get_oneshot_mods())) {
+    if (pos >= 0 && naginata_on() && on_kana_layer() && vm_word < 0 && !eng_word && !(get_mods() | get_oneshot_mods())) {
         bool hold = IS_QK_MOD_TAP(keycode) && record->tap.count == 0;
         if (!hold) {
             if (pressed) {
@@ -283,7 +331,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             return false;
         }
     }
-    if (pressed && naginata_on() && vm_word < 0) {
+    if (pressed && naginata_on() && vm_word < 0 && !eng_word) {
         take_held_mods(time);
     } else if (pressed && ng_pending()) {
         ng_flush(time);
@@ -320,7 +368,7 @@ static bool keep_tap_hold[NG_KEYS];
 bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         int8_t pos = ng_pos(record->event.key);
-        if (is_plain_pos(pos)) keep_tap_hold[pos] = get_mods() & MOD_MASK_CAG;
+        if (is_plain_pos(pos)) keep_tap_hold[pos] = eng_word || (get_mods() & MOD_MASK_CAG);
     }
     return true;
 }
@@ -357,7 +405,7 @@ bool kana_mode_combo_allowed(combo_class_t c) {
         case COMBO_ALWAYS:
             return true;
         case COMBO_NOT_NAGINATA:
-            return !(naginata_on() && on_kana_layer());
+            return eng_word || !(naginata_on() && on_kana_layer());
         case COMBO_ONCHOKU:
         default:
             return ime_on && !cfg.naginata;
