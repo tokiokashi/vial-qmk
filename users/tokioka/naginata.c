@@ -25,18 +25,18 @@ enum {
 // "#B": next [ ] as s[ s],
 // "#E": IME off, "#J": IME on, "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "te", "si", "ri",  "#A", "ta", "su", "ru", "he",
+    "#X", "te", "ki", "si", "ri",  "#A", "ta", "su", "ru", "he",
     "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
     "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
 };
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "me", "ni", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
+    "#S", "ni", "me", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
     "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
     NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gi", "de", "zi", NULL,  NULL, "da", "zu", NULL, "be",
+    NULL, "de", "gi", "zi", NULL,  NULL, "da", "zu", NULL, "be",
     "ze", "ge", NULL, "ga", "di",  "gu", NULL, NULL, "du", "bu",
     "bo", "bi", "ba", "go", "zo",  "za", NULL, "do", NULL, NULL,
 };
@@ -60,8 +60,8 @@ typedef struct {
     const char *plain, *daku, *handaku;
 } gen_t;
 static const gen_t gens[] = {
-    {P_W, "ky", "gy", NULL}, {P_R, "sy", "zy", NULL}, {P_G, "ty", "dy", NULL}, {P_X, "hy", "by", "py"},
-    {P_S, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_E, "ny", NULL, NULL},
+    {P_E, "ky", "gy", NULL}, {P_R, "sy", "zy", NULL}, {P_G, "ty", "dy", NULL}, {P_X, "hy", "by", "py"},
+    {P_S, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_W, "ny", NULL, NULL},
 };
 
 // Gairaion: a marker, a generator key and a vowel key pressed together.
@@ -74,7 +74,7 @@ typedef struct {
 } gairai_t;
 static const gairai_t gairai[] = {
     // Vowels follow the faces: a = J, i = K, u = L, e = U (shift), o = A, yu = P.
-    {MK_HANDAKU, P_E, P_P, "thu"},   {MK_HANDAKU, P_E, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
+    {MK_HANDAKU, P_W, P_P, "thu"},   {MK_HANDAKU, P_W, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
     {MK_HANDAKU, P_R, P_U, "she"},
     {MK_HANDAKU, P_G, P_U, "che"},
     {MK_HANDAKU, P_SC, P_J, "fa"},   {MK_HANDAKU, P_SC, P_K, "fi"},  {MK_HANDAKU, P_SC, P_U, "fe"},
@@ -88,7 +88,7 @@ static const gairai_t gairai[] = {
     {MK_HANDAKU, P_DT, P_A, "tso"},
     {MK_DAKU, P_R, P_U, "je"},
     {MK_DAKU, P_G, P_U, "dye"},
-    {MK_DAKU, P_E, P_P, "dhu"}, {MK_DAKU, P_E, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
+    {MK_DAKU, P_W, P_P, "dhu"}, {MK_DAKU, P_W, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
     {MK_DAKU, P_L, P_J, "va"},  {MK_DAKU, P_L, P_K, "vi"},  {MK_DAKU, P_L, P_U, "ve"},
     {MK_DAKU, P_L, P_A, "vo"},  {MK_DAKU, P_L, P_P, "vyu"}, {MK_DAKU, P_L, P_SC, "vu"},
     {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_U, "gwe"},
@@ -364,6 +364,20 @@ static void resolve(uint8_t x, uint16_t now) {
     }
     small_next = false;
 
+    // G then F, or H then J, pressed within the youon gap is the IME key too,
+    // as F+G and J+H are when the shift goes first (below).
+    if (nmods == 0 && (x == P_G || x == P_F || x == P_H || x == P_J)) {
+        uint8_t kana = x == P_F || x == P_G ? P_G : P_H, shift = kana == P_G ? P_F : P_J;
+        uint8_t y    = x == kana ? shift : kana;
+        if (keys[y].live && !keys[y].used && pressed_before(kana, shift, now) && pressed_close(kana, shift, now)) {
+            skip[y] = true;
+            flush_earlier(x, now, skip);
+            keys[y].live = false;
+            emit(kana == P_G ? "#E" : "#J");
+            return;
+        }
+    }
+
     // Two-key chords: youon and vu.
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
@@ -505,6 +519,8 @@ static bool tap_inside_kana(uint8_t pos, uint16_t now) {
         k = p;
     }
     if (k < 0 || !keys[k].live || (keys[k].used && !keys[k].anchor)) return false;
+    // J inside H and F inside G are the IME keys, in either order.
+    if (!keys[k].used && ((k == P_H && pos == P_J) || (k == P_G && pos == P_F))) return false;
     uint16_t sk = start_ago(&keys[k], now);
     if (sk <= start_ago(&keys[pos], now)) return false;
     // Taps are the shift keys pressed inside k that are still to be decided.

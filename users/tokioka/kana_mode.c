@@ -50,6 +50,8 @@ void kana_mode_init(void) {
 static keypos_t key_at[NG_KEYS];
 static uint8_t  retro_mods[NG_KEYS];
 
+#define TAKE_MODS_WAIT_MS 1
+
 static uint8_t mod_tap_mods(uint16_t keycode) {
     uint8_t m = QK_MOD_TAP_GET_MODS(keycode);
     return (m & 0x10) ? (uint8_t)((m & 0x0F) << 4) : (m & 0x0F);
@@ -67,7 +69,13 @@ static void take_held_mods(uint16_t time) {
     }
     // Kana typed before are sent first, without the modifiers.
     if (ng_pending()) ng_flush(time);
-    if (mods) register_mods(mods);
+    if (mods) {
+        register_mods(mods);
+        // The modifier goes out in its own report a moment before the key, as
+        // if held all along; Alt+Tab over a remote desktop dropped it otherwise.
+        send_keyboard_report();
+        wait_ms(TAKE_MODS_WAIT_MS);
+    }
 }
 
 // A kana key released inside a held tap-hold key, such as yo inside hi, waits
