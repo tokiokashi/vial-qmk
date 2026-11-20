@@ -25,7 +25,22 @@ static bool naginata_on(void) { return ime_on && cfg.naginata; }
 
 static bool on_kana_layer(void) { return get_highest_layer(layer_state | default_layer_state) == 0; }
 
-void ng_send_romaji(const char *romaji) { send_string(romaji); }
+// Shift and a letter in a word being typed put the IME in English for the
+// rest of it, as in Tokyo, and the kana and corner brackets after it would come
+// out as letters, as in Tokyo]. The IME on key before them brings it back to
+// kana within the same word. Sent when not needed, it does nothing.
+static bool ime_eng;
+
+static void ime_back_to_kana(void) {
+    if (!ime_eng || !ime_on) return;
+    tap_code(KC_LNG1);
+    ime_eng = false;
+}
+
+void ng_send_romaji(const char *romaji) {
+    ime_back_to_kana();
+    send_string(romaji);
+}
 
 void ng_ime(bool on) {
     tap_code(on ? KC_LNG1 : KC_LNG2);
@@ -188,6 +203,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         if (pos == vm_hold) vm_hold = -1;
         if (pos >= 0 && pos == vm_word) {
             vm_word  = -1;
+            if (vm_word_letters) ime_eng = true;
             eng_word = vm_word_letters == 1;
             eng_len  = 1;
             eng_pos  = 1;
@@ -234,6 +250,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         case KC_LNG2:
             if (pressed) {
                 eng_word = false;
+                ime_eng  = false;
                 ng_flush(time);
                 ime_on = keycode == KC_LNG1;
             }
@@ -266,6 +283,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         // Backspace, Left or Home.
         if (k == KC_ENT || k == KC_ESC || k == KC_TAB || ((get_mods() | get_oneshot_mods()) & MOD_MASK_CAG)) {
             eng_word = false;
+            ime_eng  = false;
         } else if (k == KC_BSPC) {
             if (eng_pos > 0) {
                 eng_pos--;
@@ -285,7 +303,29 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             eng_pos++;
             eng_len++;
         }
-        if (eng_pos <= 0) eng_word = false;
+        if (eng_pos <= 0) {
+            eng_word = false;
+            ime_eng  = false;
+        }
+    }
+
+    // A letter typed with Shift, in either kana layout, may start English in
+    // the IME. Enter and Esc end the word being typed and English with it.
+    if (pressed && ime_on) {
+        uint16_t k = keycode;
+        if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
+        if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
+        if (k == KC_ENT || k == KC_ESC) {
+            ime_eng = false;
+        } else if (k >= KC_A && k <= KC_Z) {
+            uint8_t m = get_mods() | get_oneshot_mods();
+            if ((m & MOD_MASK_SHIFT) && !(m & MOD_MASK_CAG)) ime_eng = true;
+        } else if ((k == KC_LBRC || k == KC_RBRC) && !(get_mods() & MOD_MASK_SHIFT)) {
+            // The corner brackets end the English word: the IME is back in
+            // kana for them and for what follows.
+            eng_word = false;
+            ime_back_to_kana();
+        }
     }
 
     lone_track(pos, pressed, time);
