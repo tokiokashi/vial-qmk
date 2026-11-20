@@ -33,7 +33,17 @@ static bool ime_eng;
 
 static void ime_back_to_kana(void) {
     if (!ime_eng || !ime_on) return;
+    // Sent without the Shift held for ( and ), so the IME sees the plain key.
+    uint8_t mods = get_mods();
+    if (mods) {
+        clear_mods();
+        send_keyboard_report();
+    }
     tap_code(KC_LNG1);
+    if (mods) {
+        set_mods(mods);
+        send_keyboard_report();
+    }
     ime_eng = false;
 }
 
@@ -320,9 +330,9 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         } else if (k >= KC_A && k <= KC_Z) {
             uint8_t m = get_mods() | get_oneshot_mods();
             if ((m & MOD_MASK_SHIFT) && !(m & MOD_MASK_CAG)) ime_eng = true;
-        } else if ((k == KC_LBRC || k == KC_RBRC) && !(get_mods() & MOD_MASK_SHIFT)) {
-            // The corner brackets end the English word: the IME is back in
-            // kana for them and for what follows.
+        } else if (((k == KC_LBRC || k == KC_RBRC) && !(get_mods() & MOD_MASK_SHIFT)) || k == KC_LPRN || k == KC_RPRN || ((k == KC_9 || k == KC_0) && (get_mods() & MOD_MASK_SHIFT))) {
+            // The corner brackets and the parentheses end the English word:
+            // the IME is back in kana for them and for what follows.
             eng_word = false;
             ime_back_to_kana();
         }
