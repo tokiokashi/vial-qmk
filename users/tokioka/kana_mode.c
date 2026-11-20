@@ -251,6 +251,60 @@ void housekeeping_task_user(void) {
     action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, false));
 }
 
+// The keyboard cannot see the IME, and another window may have it in the
+// other state, so the kana layouts would not match it: on-choku combos off
+// with the IME on, or romaji typed as letters with it off. After a shortcut
+// with Alt or GUI or a mouse button, which may switch windows, or after a
+// pause long enough to click elsewhere with the mouse, the next typed key
+// first sends the state the keyboard has.
+#define IME_RESYNC_IDLE_MS 10000
+
+static bool     ime_resync;
+static uint32_t ime_last_press;
+
+static bool resync_skips(uint16_t k) {
+    if (k == KC_NO || IS_MODIFIER_KEYCODE(k)) return true;
+    if (IS_QK_MOMENTARY(k) || IS_QK_TO(k) || IS_QK_TOGGLE_LAYER(k) || IS_QK_ONE_SHOT_LAYER(k) || IS_QK_ONE_SHOT_MOD(k)) return true;
+    switch (k) {
+        case KC_ENT: case KC_ESC: case KC_BSPC: case KC_TAB: case KC_DEL:
+        case KC_LEFT: case KC_RIGHT: case KC_UP: case KC_DOWN:
+        case KC_HOME: case KC_END: case KC_PGUP: case KC_PGDN: case KC_INS:
+            return true;
+    }
+    return k >= KC_F1 && k <= KC_F12;
+}
+
+static void ime_resync_track(uint16_t keycode, keyrecord_t *record) {
+    if (!record->event.pressed) return;
+    uint32_t now = timer_read32();
+    if (TIMER_DIFF_32(now, ime_last_press) >= IME_RESYNC_IDLE_MS) ime_resync = true;
+    ime_last_press = now;
+
+    uint16_t k = keycode;
+    if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
+    if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
+    uint8_t m = get_mods() | get_oneshot_mods();
+    // A mouse button from the mouse layer may click another window too.
+    bool click = k >= QK_MOUSE_BUTTON_1 && k <= QK_MOUSE_BUTTON_8;
+    if (click || k == KC_LGUI || k == KC_RGUI || ((m & (MOD_MASK_ALT | MOD_MASK_GUI)) && !IS_MODIFIER_KEYCODE(k) && k != KC_NO)) {
+        ime_resync = true;
+        return;
+    }
+    if (!ime_resync || (m & MOD_MASK_CTRL) || resync_skips(k)) return;
+    ime_resync = false;
+    // Typed without the Shift held for a capital, so the IME sees the plain key.
+    uint8_t mods = get_mods();
+    if (mods) {
+        clear_mods();
+        send_keyboard_report();
+    }
+    tap_code(ime_on ? KC_LNG1 : KC_LNG2);
+    if (mods) {
+        set_mods(mods);
+        send_keyboard_report();
+    }
+}
+
 bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos) {
     uint16_t time    = record->event.time;
     bool     pressed = record->event.pressed;
@@ -259,8 +313,9 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         case KC_LNG1:
         case KC_LNG2:
             if (pressed) {
-                eng_word = false;
-                ime_eng  = false;
+                eng_word   = false;
+                ime_eng    = false;
+                ime_resync = false;
                 ng_flush(time);
                 ime_on = keycode == KC_LNG1;
             }
@@ -282,6 +337,8 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             }
             return false;
     }
+
+    ime_resync_track(keycode, record);
 
     if (pressed && eng_word) {
         uint16_t k = keycode;
