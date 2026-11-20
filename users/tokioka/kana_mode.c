@@ -254,8 +254,9 @@ void housekeeping_task_user(void) {
 // The keyboard cannot see the IME, and another window may have it in the
 // other state, so the kana layouts would not match it: on-choku combos off
 // with the IME on, or romaji typed as letters with it off. After a shortcut
-// with Alt or GUI, which may switch windows, or after a pause long enough to
-// click elsewhere, the next typed key first sends the state the keyboard has.
+// with Alt or GUI or a mouse button, which may switch windows, or after a
+// pause long enough to click elsewhere with the mouse, the next typed key
+// first sends the state the keyboard has.
 #define IME_RESYNC_IDLE_MS 10000
 
 static bool     ime_resync;
@@ -283,7 +284,9 @@ static void ime_resync_track(uint16_t keycode, keyrecord_t *record) {
     if (IS_QK_LAYER_TAP(k)) k = record->tap.count ? QK_LAYER_TAP_GET_TAP_KEYCODE(k) : KC_NO;
     if (IS_QK_MOD_TAP(k)) k = record->tap.count ? QK_MOD_TAP_GET_TAP_KEYCODE(k) : KC_NO;
     uint8_t m = get_mods() | get_oneshot_mods();
-    if (k == KC_LGUI || k == KC_RGUI || ((m & (MOD_MASK_ALT | MOD_MASK_GUI)) && !IS_MODIFIER_KEYCODE(k) && k != KC_NO)) {
+    // A mouse button from the mouse layer may click another window too.
+    bool click = k >= QK_MOUSE_BUTTON_1 && k <= QK_MOUSE_BUTTON_8;
+    if (click || k == KC_LGUI || k == KC_RGUI || ((m & (MOD_MASK_ALT | MOD_MASK_GUI)) && !IS_MODIFIER_KEYCODE(k) && k != KC_NO)) {
         ime_resync = true;
         return;
     }
