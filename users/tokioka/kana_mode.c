@@ -462,10 +462,10 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
 // The bottom row has tap-hold keys in the .vil (Ctrl, Alt, Shift). While typing
 // f1898 they are plain kana keys on layer 0, so a key pressed last in a
 // chord, such as yo in kyo after ki, never waits out the tapping term and
-// becomes its modifier, and . and / reach the engine at once for ?. Held, they still become modifiers through take_held_mods and the
-// inner-key rule. With Ctrl, Alt or GUI already on when one goes down, it
-// keeps its tap-hold for shortcuts, decided at the press so its release
-// matches.
+// becomes its modifier, and . and / reach the engine at once for ?. Held,
+// they still become modifiers through take_held_mods and the inner-key rule.
+// With Ctrl, Alt or GUI already on when one goes down, it keeps its tap-hold
+// for shortcuts, decided at the press so its release matches.
 static bool is_plain_pos(int8_t p) { return p >= 20 && p < NG_KEYS; }
 static bool keep_tap_hold[NG_KEYS];
 

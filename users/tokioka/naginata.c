@@ -40,8 +40,9 @@ static const char *const daku_face[NG_KEYS] = {
     "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, "zo", "za",
     "du", "gu", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
 };
+// The half dakuten on the comma key T gives !.
 static const char *const handaku_face[NG_KEYS] = {
-    NULL, NULL, NULL, NULL, NULL,  NULL, "pe", NULL, "pa", NULL,
+    NULL, NULL, NULL, NULL, "!",   NULL, "pe", NULL, "pa", NULL,
     "pi", NULL, NULL, NULL, "pu",  "po", NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, NULL,
 };
