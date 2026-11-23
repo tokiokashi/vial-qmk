@@ -24,21 +24,21 @@ enum {
 // "#A": next key an arrow, z[ z] or a circled digit,
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ku", "ta", "ri", ",",   "ke", "ha", "te", "re", "ra",
-    "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
-    "tu", "ki", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
+    "#X", "ku", "ta", "ri", ",",   "se", "ha", "te", "re", "ra",
+    "ltu", "si", "nn", "no", "-",  "a",  "ka", "na", "i",  "sa",
+    "tu", "ki", "ru", "su", "ni",  "ke", "ko", "u",  "to", "o",
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    NULL, "mi", NULL, "so", ".",   NULL, "mu", "ya", "he", "nu",
+    NULL, "mi", NULL, "so", ".",   "/",  "mu", "ya", "he", "nu",
     "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, NULL, "e",
     "#A", "me", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gu", "da", "zo", NULL,  "ge", "ba", "de", "be", NULL,
+    NULL, "gu", "da", "zo", NULL,  "ze", "ba", "de", "be", NULL,
     "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, NULL, "za",
-    "du", "gi", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
+    "du", "gi", "di", "zu", NULL,  "ge", "go", "vu", "do", "wo",
 };
 // The half dakuten on the comma key T gives !.
 static const char *const handaku_face[NG_KEYS] = {
@@ -50,9 +50,9 @@ static const char *const handaku_face[NG_KEYS] = {
 // Small kana, for Q held with the key.
 // lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
-    NULL,  NULL,  NULL,  NULL,  NULL,   "lke", NULL,  "xya", NULL,  NULL,
-    NULL,  NULL,  NULL,  NULL,  "ltu",  "xa",  "lka", NULL,  "xi",  "xe",
-    "ltu", NULL,  NULL,  "xwa", NULL,   NULL,  "xyo", "xu",  "xyu", "xo",
+    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  NULL,  "xya", NULL,  NULL,
+    "ltu", NULL,  NULL,  NULL,  NULL,   "xa",  "lka", NULL,  "xi",  "xe",
+    "ltu", NULL,  NULL,  "xwa", NULL,   "lke", "xyo", "xu",  "xyu", "xo",
 };
 
 // Youon: a key with a kana of the i row on either face, and I = ya, . = yu or M = yo.
