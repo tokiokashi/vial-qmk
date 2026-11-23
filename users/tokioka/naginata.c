@@ -1,4 +1,5 @@
-// Kana engine for f1898, tokioka's own chord layout.
+// Kana engine for f1898UO, tokioka's own chord layout: f1898 with the U and O
+// keys swapped.
 //
 // Every key is decided when it is released. A shift key (D/K = middle-finger
 // shift, F/J = dakuten, R/U = half dakuten) applies to a kana key when the two
@@ -21,33 +22,33 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// "#S": next kana small, "#A": next key an arrow, z[ z] or a circled digit,
+// "#A": next key an arrow, z[ z] or a circled digit,
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "ta", "ri", ",",   "ke", "re", "te", "ha", "ra",
+    "#X", "ki", "ta", "ri", ",",   "ke", "ha", "te", "re", "ra",
     "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
     "tu", "ku", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "me", NULL, NULL, ".",   NULL, "he", "ya", "mu", "nu",
+    NULL, "me", NULL, NULL, ".",   NULL, "mu", "ya", "he", "nu",
     "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, "so", "e",
     "#A", "mi", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gi", "da", NULL, NULL,  "ge", "be", "de", "ba", NULL,
+    NULL, "gi", "da", NULL, NULL,  "ge", "ba", "de", "be", NULL,
     "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, "zo", "za",
     "du", "gu", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
 };
 // The half dakuten on the comma key T gives !.
 static const char *const handaku_face[NG_KEYS] = {
-    NULL, NULL, NULL, NULL, "!",   NULL, "pe", NULL, "pa", NULL,
+    NULL, NULL, NULL, NULL, "!",   NULL, "pa", NULL, "pe", NULL,
     "pi", NULL, NULL, NULL, "pu",  "po", NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, NULL,
 };
 
-// Small kana, for Q held with the key or the key after the middle-finger shift + Q.
+// Small kana, for Q held with the key.
 // lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
     NULL,  NULL,  NULL,  NULL,  NULL,   "lke", NULL,  "xya", NULL,  NULL,
@@ -102,7 +103,6 @@ typedef struct {
 #define NG_ESC_TERM 200
 
 static ngkey_t keys[NG_KEYS];
-static bool  small_next;
 static bool  arrow_next;
 // The letter put before [ and ] by the key outside the engine: z after the
 // toku key (the middle-finger shift + Z), s after both shifts + Z, or 0.
@@ -153,17 +153,12 @@ static bool pressed_before(uint8_t a, uint8_t b, uint16_t now) { return start_ag
 static void emit(const char *r) {
     if (!r) return;
     if (r[0] == '#') {
-        if (r[1] == 'S') {
-            small_next = true;
-        } else if (r[1] == 'A' || r[1] == 'B') {
-            small_next     = false;
+        if (r[1] == 'A' || r[1] == 'B') {
             arrow_next     = r[1] == 'A';
             bracket_prefix = r[1] == 'A' ? 'z' : 's';
         } else if (r[1] == 'X') {
-            small_next = false;
             ng_tap_esc();
         } else {
-            small_next = false;
             ng_ime(r[1] == 'J');
         }
         return;
@@ -323,7 +318,6 @@ static void resolve(uint8_t x, uint16_t now) {
                 keys[p].live = false;
             }
         }
-        small_next = false;
         emit(g->romaji);
         return;
     }
@@ -347,30 +341,21 @@ static void resolve(uint8_t x, uint16_t now) {
             keys[y].live = false;
         }
         for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
-        small_next = false;
         emit(small_face[k]);
         return;
     }
 
-    // The key after the toku key gives an arrow, whatever shift is held.
-    if (arrow && arrow_romaji(x)) {
+    // The key after the toku key gives an arrow, whatever shift is held, and
+    // the comma and the period after it give z, and z. for the two- and
+    // three-dot leaders of tokioka's own romaji table.
+    const char *ar = !arrow ? NULL : x == P_T && daku == 0 ? (chuu ? "z." : "z,") : arrow_romaji(x);
+    if (ar) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
         for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
-        small_next = false;
-        emit(arrow_romaji(x));
+        emit(ar);
         return;
     }
-    // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
-    if (small_next && small_face[x]) {
-        for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
-        flush_earlier(x, now, skip);
-        for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
-        small_next = false;
-        emit(small_face[x]);
-        return;
-    }
-    small_next = false;
 
     // G then F, or H then J, pressed within the youon gap is the IME key too,
     // as F+G and J+H are when the shift goes first (below).
@@ -575,7 +560,6 @@ static bool tap_inside_kana(uint8_t pos, uint16_t now) {
     }
     keys[k].used   = true;
     keys[k].anchor = true;
-    small_next     = false;
     return true;
 }
 

@@ -136,13 +136,11 @@ static void inner_settle(void) {
     ng_release(p, inner_time);
 }
 
-// V or M tapped and then held alone for VM_WORD_MS: the first tap's ko or na
-// is erased at once and the key is Shift until released, for capitals. The
-// other one of V and M is a letter then.
-// Otherwise V and M make their kana as usual.
-#define VM_TAP_MS 200
+// V or M held alone for VM_WORD_MS gives no kana and is Shift until released,
+// for capitals. The other one of V and M is a letter then. Another key pressed
+// before that makes the kana as usual.
 // The hold time follows the tapping term set in Vial, so a V or M hold matches
-// the other tap-hold keys. The lone D, K, F and J hold below uses it too.
+// the other tap-hold keys. The lone shift hold below uses it too.
 #ifdef QMK_SETTINGS
 #    include "qmk_settings.h"
 #    define VM_WORD_MS (QS.tapping_term)
@@ -151,7 +149,7 @@ static void inner_settle(void) {
 #endif
 
 static bool     passed[NG_KEYS];
-static int8_t   vm_first = -1, vm_tap = -1, vm_hold = -1, vm_word = -1;
+static int8_t   vm_hold = -1, vm_word = -1;
 static uint16_t vm_time;
 
 // One letter typed in that Shift and the key let go: the word goes on in
@@ -169,17 +167,15 @@ static bool any_kana_key_down(void) {
     return false;
 }
 
-// Runs from the housekeeping task, so the kana is erased while the key is
-// still held alone.
+// Runs from the housekeeping task, so Shift is on while the key is still held
+// alone. The engine has sent nothing for the key yet, so nothing is erased.
 static void vm_word_task(void) {
     if (vm_hold < 0 || timer_elapsed(vm_time) < VM_WORD_MS) return;
     int8_t p = vm_hold;
     vm_hold  = -1;
-    vm_first = -1;
     uint16_t kc = keycode_at_keymap_location(0, key_at[p].row, key_at[p].col);
     if (!ng_down(p) || !IS_QK_MOD_TAP(kc) || !naginata_on()) return;
     ng_cancel(p);
-    tap_code(KC_BSPC);
     vm_word         = p;
     vm_word_letters = 0;
     retro_mods[p] = mod_tap_mods(kc);
@@ -216,18 +212,11 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
             eng_len  = 1;
             eng_pos  = 1;
         }
-        if (pos >= 0 && pos == vm_first) {
-            vm_tap   = TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
-            vm_first = -1;
-            vm_time  = time;
-        }
         return;
     }
     if (vm_word >= 0 && pos >= 0) vm_word_letters++;
     bool alone = !eng_word && is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
-    vm_hold    = alone && pos == vm_tap && TIMER_DIFF_16(time, vm_time) < VM_TAP_MS ? pos : -1;
-    vm_first   = alone ? pos : -1;
-    vm_tap     = -1;
+    vm_hold    = alone ? pos : -1;
     vm_time    = time;
 }
 
@@ -442,9 +431,10 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         ng_flush(time);
     }
     // Entries of the romaji table for keys from other layers:
-    // - Y and then [ or ] give z[ and z], the double corner brackets, and the
-    //   middle-finger shift + Y gives s[ and s], the lenticular ones
-    // - Y and then a digit gives m and the digit, the circled number
+    // - the toku key (the middle-finger shift + Z) and then [ or ] give z[ and
+    //   z], the double corner brackets, and both shifts + Z gives s[ and s],
+    //   the lenticular ones
+    // - the toku key and then a digit gives m and the digit, the circled number
     // Another typed key ends the prefix; a layer key pressed to reach them does not.
     if (pressed && IS_BASIC_KEYCODE(keycode) && !IS_MODIFIER_KEYCODE(keycode)) {
         char c = ng_take_bracket_prefix();
