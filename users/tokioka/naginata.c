@@ -344,12 +344,15 @@ static void resolve(uint8_t x, uint16_t now) {
         return;
     }
 
-    // The key after the toku key gives an arrow, whatever shift is held.
-    if (arrow && arrow_romaji(x)) {
+    // The key after the toku key gives an arrow, whatever shift is held, and
+    // the comma and the period after it give z, and z. for the two- and
+    // three-dot leaders of tokioka's own romaji table.
+    const char *ar = !arrow ? NULL : x == P_T && daku == 0 ? (chuu ? "z." : "z,") : arrow_romaji(x);
+    if (ar) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
         for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
-        emit(arrow_romaji(x));
+        emit(ar);
         return;
     }
 
