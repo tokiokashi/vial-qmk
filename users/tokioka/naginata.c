@@ -30,7 +30,7 @@ static const char *const base_face[NG_KEYS] = {
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    NULL, "mi", NULL, "so", ".",   NULL, "mu", "ya", "he", "nu",
+    NULL, "mi", NULL, "so", ".",   "/",  "mu", "ya", "he", "nu",
     "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, NULL, "e",
     "#A", "me", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
