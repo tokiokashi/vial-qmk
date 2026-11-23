@@ -1,6 +1,6 @@
 // hj (KC_LNG1) turns the IME on and goes to the kana layout chosen by NG_SW:
-// TK on-choku or the Naginata private edition. fg (KC_LNG2) turns it off.
-// In Naginata mode the alpha keys of layer 0 are read by position, and a
+// TK on-choku or f1898, the engine in naginata.c. fg (KC_LNG2) turns it off.
+// In f1898 mode the alpha keys of layer 0 are read by position, and a
 // tap-hold key on the bottom row still gives its modifier when held.
 
 #include "kana_mode.h"
@@ -106,9 +106,8 @@ static void take_held_mods(uint16_t time) {
 // A kana key released inside a held tap-hold key, such as yo inside hi, waits
 // this long. If the tap-hold key is still held then, it becomes its modifier
 // and the inner key is typed with it (Ctrl+I); otherwise they make kana (hyo).
-// V and M are left out as holders: they are the half-dakuten shift and are held
-// long. Held with a holder, they become Shift along with it (Ctrl+Shift+T).
-// The , . and / pairs for ! and ? are left out too, as , and . are tap-hold keys.
+// V and M are left out as holders: they are Shift for the capitals below, and
+// held with a holder they become Shift along with it (Ctrl+Shift+T).
 #define INNER_WAIT_MS 60
 
 static int8_t   inner_pos = -1, inner_holder = -1;
@@ -120,8 +119,6 @@ static bool is_vm(int8_t p) { return p == NG_POS_V || p == NG_POS_M; }
 static int8_t held_tap_hold_before(uint8_t p, uint16_t time) {
     for (uint8_t h = 0; h < NG_KEYS; h++) {
         if (h == p || is_vm(h) || retro_mods[h] || !ng_down(h)) continue;
-        // The ! and ? pairs are kana chords however they are released.
-        if (ng_mark_chord(h, p, time)) continue;
         if (ng_down_ms(h, time) <= ng_down_ms(p, time)) continue;
         if (IS_QK_MOD_TAP(keycode_at_keymap_location(0, key_at[h].row, key_at[h].col))) return h;
     }
@@ -139,9 +136,7 @@ static void inner_settle(void) {
 // V or M tapped and then held alone for VM_WORD_MS: the first tap's ko or na
 // is erased at once and the key is Shift until released, for capitals. The
 // other one of V and M is a letter then.
-// Otherwise V and M make kana as usual: a half dakuten chord and the
-// continuous shift after it, the comma or period with the other one of V and
-// M, and their own kana when tapped alone.
+// Otherwise V and M make their kana as usual.
 #define VM_TAP_MS 200
 // The hold time follows the tapping term set in Vial, so a V or M hold matches
 // the other tap-hold keys. The lone D, K, F and J hold below uses it too.
@@ -188,14 +183,14 @@ static void vm_word_task(void) {
     register_mods(retro_mods[p]);
 }
 
-// D, K, F, J, V and M held alone for the tapping term and let go give nothing,
+// D, K, F, J, R and U held alone for the tapping term and let go give nothing,
 // so a shift key pressed by mistake can be dropped by holding it a while.
 #define LONE_SHIFT_MS VM_WORD_MS
 
 static int8_t   lone_pos = -1;
 static uint16_t lone_time;
 
-static bool is_lone_shift(int8_t p) { return p == 12 || p == 13 || p == 16 || p == 17 || is_vm(p); }
+static bool is_lone_shift(int8_t p) { return p == 3 || p == 6 || p == 12 || p == 13 || p == 16 || p == 17; }
 
 static void lone_track(int8_t pos, bool pressed, uint16_t time) {
     if (pressed) {
@@ -462,10 +457,9 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
 }
 
 // The bottom row has tap-hold keys in the .vil (Ctrl, Alt, Shift). While typing
-// Naginata they are plain kana keys on layer 0, so a key pressed last in a
-// chord, such as hi in bi-yo after a and su, never waits out the tapping term
-// and becomes its modifier, and comma and period reach the engine at once for
-// ! and ?. Held, they still become modifiers through take_held_mods and the
+// f1898 they are plain kana keys on layer 0, so a key pressed last in a
+// chord, such as yo in kyo after ki, never waits out the tapping term and
+// becomes its modifier. Held, they still become modifiers through take_held_mods and the
 // inner-key rule. With Ctrl, Alt or GUI already on when one goes down, it
 // keeps its tap-hold for shortcuts, decided at the press so its release
 // matches.

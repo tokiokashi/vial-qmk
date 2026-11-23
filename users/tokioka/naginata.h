@@ -1,4 +1,4 @@
-// Naginata-style kana engine (tokioka private edition, trial).
+// Kana engine for f1898, tokioka's own chord layout.
 // Pure C: no QMK headers, so the decision logic can be tested on a PC.
 #pragma once
 
@@ -19,8 +19,6 @@ void ng_cancel(uint8_t pos);
 void ng_forget(uint8_t pos);
 // Whether keys at positions a and b can make kana together.
 bool ng_can_chord(uint8_t a, uint8_t b);
-// Whether a and b are the pair for ! or ? and went down close enough to be one.
-bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time);
 extern uint8_t ng_yoon_gap_ms; // a youon pair pressed within this many ms is a chord
 extern uint8_t ng_overlap_pct; // how much of a key's press a shift must cover, in percent
 
@@ -29,8 +27,8 @@ void ng_release(uint8_t pos, uint16_t time);
 // Output every key still waiting, as if all keys were released now.
 void ng_flush(uint16_t time);
 bool ng_pending(void);
-// The letter to put before [ or ] typed next, z after Y and s after the
-// middle-finger shift + Y, or 0; clears it. [ and ] come from outside the engine.
+// The letter to put before [ or ] typed next, z after the toku key (the
+// middle-finger shift + Z), or 0; clears it. [ and ] come from outside the engine.
 char ng_take_bracket_prefix(void);
 
 // Provided by the caller.

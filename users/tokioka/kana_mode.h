@@ -1,4 +1,4 @@
-// Kana mode switching for the tokioka keymaps: TK on-choku or Naginata (trial).
+// Kana mode switching for the tokioka keymaps: TK on-choku or f1898.
 #pragma once
 
 #include QMK_KEYBOARD_H
@@ -8,13 +8,13 @@ enum kana_keycodes {
     NG_SW = QK_KB_0, // switch the kana layout that hj goes to
     NG_POST,         // switch whether a shift pressed after the kana applies
     NG_ONCHOKU,      // make hj go to TK on-choku, for a tap dance or a layer
-    NG_NAGINATA,     // make hj go to Naginata
+    NG_NAGINATA,     // make hj go to f1898
 };
 
 // How a Vial combo slot behaves by mode.
 typedef enum {
     COMBO_ALWAYS,       // IME on/off, thumb macros, volume
-    COMBO_NOT_NAGINATA, // overlaps kana keys, so off while typing Naginata
+    COMBO_NOT_NAGINATA, // overlaps kana keys, so off while typing f1898
     COMBO_ONCHOKU,      // TK on-choku, on only while the IME is on in on-choku mode
 } combo_class_t;
 
