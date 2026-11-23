@@ -1,4 +1,5 @@
-// Kana engine for f1898, tokioka's own chord layout.
+// Kana engine for f1898UO, tokioka's own chord layout: f1898 with the U and O
+// keys swapped.
 //
 // Every key is decided when it is released. A shift key (D/K = middle-finger
 // shift, F/J = dakuten, R/U = half dakuten) applies to a kana key when the two
@@ -24,25 +25,25 @@ enum {
 // "#A": next key an arrow, z[ z] or a circled digit,
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "ta", "ri", ",",   "ke", "re", "te", "ha", "ra",
+    "#X", "ki", "ta", "ri", ",",   "ke", "ha", "te", "re", "ra",
     "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
     "tu", "ku", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    NULL, "me", NULL, NULL, ".",   NULL, "he", "ya", "mu", "nu",
+    NULL, "me", NULL, NULL, ".",   NULL, "mu", "ya", "he", "nu",
     "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, "so", "e",
     "#A", "mi", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gi", "da", NULL, NULL,  "ge", "be", "de", "ba", NULL,
+    NULL, "gi", "da", NULL, NULL,  "ge", "ba", "de", "be", NULL,
     "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, "zo", "za",
     "du", "gu", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
 };
 // The half dakuten on the comma key T gives !.
 static const char *const handaku_face[NG_KEYS] = {
-    NULL, NULL, NULL, NULL, "!",   NULL, "pe", NULL, "pa", NULL,
+    NULL, NULL, NULL, NULL, "!",   NULL, "pa", NULL, "pe", NULL,
     "pi", NULL, NULL, NULL, "pu",  "po", NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, NULL,
 };
