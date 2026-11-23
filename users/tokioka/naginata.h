@@ -1,4 +1,4 @@
-// Kana engine for f1898, tokioka's own chord layout.
+// Kana engine for tokiokashiki, tokioka's own chord layout.
 // Pure C: no QMK headers, so the decision logic can be tested on a PC.
 #pragma once
 
