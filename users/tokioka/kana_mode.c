@@ -222,6 +222,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
 
 void housekeeping_task_user(void) {
     vm_word_task();
+    ng_tick(timer_read());
     if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
     int8_t p = inner_pos, h = inner_holder;
     inner_pos = -1;

@@ -27,6 +27,8 @@ void ng_release(uint8_t pos, uint16_t time);
 // Output every key still waiting, as if all keys were released now.
 void ng_flush(uint16_t time);
 bool ng_pending(void);
+// Send a comma held back for a second T tap once its time is up. Call it often.
+void ng_tick(uint16_t time);
 // Whether a and b are the pair for ? and went down close enough to be one.
 bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time);
 // The letter to put before [ or ] typed next, z after the toku key (the
