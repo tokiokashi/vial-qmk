@@ -1,7 +1,7 @@
-// Naginata-style kana engine (tokioka private edition, trial).
+// Kana engine for f1898, tokioka's own chord layout.
 //
 // Every key is decided when it is released. A shift key (D/K = middle-finger
-// shift, F/J = dakuten, V/M = half dakuten) applies to a kana key when the two
+// shift, F/J = dakuten, R/U = half dakuten) applies to a kana key when the two
 // presses overlap by at least ng_overlap_pct percent of the kana key's press.
 // Kana are sent as romaji, so the IME must be in romaji mode.
 
@@ -22,77 +22,71 @@ enum {
 };
 
 // "#S": next kana small, "#A": next key an arrow, z[ z] or a circled digit,
-// "#B": next [ ] as s[ s],
-// "#E": IME off, "#J": IME on, "#X": Esc.
+// "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "te", "ki", "si", "ri",  "#A", "ta", "su", "ru", "he",
-    "o",  "ke", "nn", "ka", "-",   "ku", "a",  "i",  "u",  "ltu",
-    "ho", "hi", "ha", "ko", "so",  "sa", "na", "to", "ra", "re",
+    "#X", "ki", "ta", "ri", ",",   "ke", "re", "te", "ha", "ra",
+    "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
+    "tu", "ku", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
 };
+// The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    "#S", "ni", "me", "ne", NULL,  "#B", "e",  "yo", "ro", "yu",
-    "se", "mi", "mo", "ma", "ti",  "ya", "no", "mo", "tu", "hu",
-    NULL, "wo", "nu", ",",  NULL,  NULL, ".",  "mu", "wa", "/",
+    "#S", "me", NULL, NULL, ".",   NULL, "he", "ya", "mu", "nu",
+    "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, "so", "e",
+    "#A", "mi", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "de", "gi", "zi", NULL,  NULL, "da", "zu", NULL, "be",
-    "ze", "ge", NULL, "ga", "di",  "gu", NULL, NULL, "du", "bu",
-    "bo", "bi", "ba", "go", "zo",  "za", NULL, "do", NULL, NULL,
+    NULL, "gi", "da", NULL, NULL,  "ge", "be", "de", "ba", NULL,
+    "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, "zo", "za",
+    "du", "gu", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
 };
+// The half dakuten on the comma key T gives !.
 static const char *const handaku_face[NG_KEYS] = {
-    NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, "pe",
-    NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, "pu",
-    "po", "pi", "pa", NULL, NULL,  NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, "!",   NULL, "pe", NULL, "pa", NULL,
+    "pi", NULL, NULL, NULL, "pu",  "po", NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL,  NULL, NULL, NULL, NULL, NULL,
 };
 
-// Small kana, for the key after the middle-finger shift + Q.
+// Small kana, for Q held with the key or the key after the middle-finger shift + Q.
 // lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
-    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  "xe",  "xyo", NULL,  "xyu",
-    "xo",  "lke", NULL,  "lka", NULL,   "xya", "xa",  "xi",  "xu",  "ltu",
-    NULL,  NULL,  NULL,  NULL,  NULL,   NULL,  NULL,  NULL,  "xwa", NULL,
+    NULL,  NULL,  NULL,  NULL,  NULL,   "lke", NULL,  "xya", NULL,  NULL,
+    NULL,  NULL,  NULL,  NULL,  "ltu",  "xa",  "lka", NULL,  "xi",  "xe",
+    "ltu", NULL,  NULL,  "xwa", NULL,   NULL,  "xyo", "xu",  "xyu", "xo",
 };
 
-// Youon: a generator key with H = ya, I = yo, P = yu.
+// Youon: a key with a kana of the i row on either face, and I = ya, . = yu or M = yo.
 typedef struct {
     uint8_t     pos;
     const char *plain, *daku, *handaku;
 } gen_t;
 static const gen_t gens[] = {
-    {P_E, "ky", "gy", NULL}, {P_R, "sy", "zy", NULL}, {P_G, "ty", "dy", NULL}, {P_X, "hy", "by", "py"},
-    {P_S, "my", NULL, NULL}, {P_T, "ry", NULL, NULL}, {P_W, "ny", NULL, NULL},
+    {P_W, "ky", "gy", NULL}, {P_S, "sy", "zy", NULL}, {P_C, "ty", "dy", NULL}, {P_A, "hy", "by", "py"},
+    {P_X, "my", NULL, NULL}, {P_R, "ry", NULL, NULL}, {P_B, "ny", NULL, NULL},
 };
 
-// Gairaion: a marker, a generator key and a vowel key pressed together.
-// The marker is a half-dakuten key (V or M) or a dakuten key (F or J).
-// Generators sit where their kana is (fu on the shifted ;), except tsu.
-enum { MK_HANDAKU, MK_DAKU };
+// Gairaion: a generator key and a vowel key pressed together, by key position
+// whatever the face. Those with dakuten take F or J as a third key.
+enum { MK_NONE, MK_DAKU };
 typedef struct {
     uint8_t     marker, gen, vowel;
     const char *romaji;
 } gairai_t;
+// The dakuten rows come first, so a held dakuten key picks them.
 static const gairai_t gairai[] = {
-    // Vowels follow the faces: a = J, i = K, u = L, e = U (shift), o = A, yu = P.
-    {MK_HANDAKU, P_W, P_P, "thu"},   {MK_HANDAKU, P_W, P_K, "thi"},  {MK_HANDAKU, P_CM, P_L, "twu"},
-    {MK_HANDAKU, P_R, P_U, "she"},
-    {MK_HANDAKU, P_G, P_U, "che"},
-    {MK_HANDAKU, P_SC, P_J, "fa"},   {MK_HANDAKU, P_SC, P_K, "fi"},  {MK_HANDAKU, P_SC, P_U, "fe"},
-    {MK_HANDAKU, P_SC, P_A, "fo"},   {MK_HANDAKU, P_SC, P_P, "fyu"},
-    {MK_HANDAKU, P_L, P_K, "wi"},    {MK_HANDAKU, P_L, P_U, "we"},   {MK_HANDAKU, P_L, P_A, "who"},
-    {MK_HANDAKU, P_K, P_U, "ye"},   {MK_HANDAKU, P_K, P_L, "wi"},
-    {MK_HANDAKU, P_H, P_J, "qa"},    {MK_HANDAKU, P_H, P_K, "qi"},   {MK_HANDAKU, P_H, P_U, "qe"},
-    {MK_HANDAKU, P_H, P_A, "qo"},    {MK_HANDAKU, P_H, P_L, "kuxwa"}, {MK_HANDAKU, P_H, P_DT, "kuxwa"},
-    // Tsu lives on L with u, so its row takes the dot key.
-    {MK_HANDAKU, P_DT, P_J, "tsa"},  {MK_HANDAKU, P_DT, P_K, "tsi"}, {MK_HANDAKU, P_DT, P_U, "tse"},
-    {MK_HANDAKU, P_DT, P_A, "tso"},
-    {MK_DAKU, P_R, P_U, "je"},
-    {MK_DAKU, P_G, P_U, "dye"},
-    {MK_DAKU, P_W, P_P, "dhu"}, {MK_DAKU, P_W, P_K, "dhi"}, {MK_DAKU, P_CM, P_L, "dwu"},
-    {MK_DAKU, P_L, P_J, "va"},  {MK_DAKU, P_L, P_K, "vi"},  {MK_DAKU, P_L, P_U, "ve"},
-    {MK_DAKU, P_L, P_A, "vo"},  {MK_DAKU, P_L, P_P, "vyu"}, {MK_DAKU, P_L, P_SC, "vu"},
-    {MK_DAKU, P_H, P_J, "gwa"}, {MK_DAKU, P_H, P_K, "gwi"}, {MK_DAKU, P_H, P_U, "gwe"},
-    {MK_DAKU, P_H, P_A, "gwo"}, {MK_DAKU, P_H, P_L, "guxwa"}, {MK_DAKU, P_H, P_DT, "guxwa"},
+    // Generators: te = I, to = ., u = ",", fu = G, tsu = Z, ku = X, su = V, si = S, ti = C, i = L.
+    // Vowels: a = H, i = L, u = ",", e = ;, o = /, yu = ".".
+    {MK_DAKU, P_I, P_L, "dhi"},   {MK_DAKU, P_I, P_DT, "dhu"},  {MK_DAKU, P_DT, P_CM, "dwu"},
+    {MK_DAKU, P_CM, P_H, "va"},   {MK_DAKU, P_CM, P_L, "vi"},   {MK_DAKU, P_CM, P_SC, "ve"},
+    {MK_DAKU, P_CM, P_SL, "vo"},  {MK_DAKU, P_S, P_SC, "je"},   {MK_DAKU, P_X, P_H, "gwa"},
+    {MK_DAKU, P_V, P_L, "zwi"},
+    {MK_NONE, P_I, P_L, "thi"},   {MK_NONE, P_I, P_DT, "thu"},  {MK_NONE, P_DT, P_CM, "twu"},
+    {MK_NONE, P_CM, P_L, "wi"},   {MK_NONE, P_CM, P_SC, "we"},  {MK_NONE, P_CM, P_SL, "who"},
+    {MK_NONE, P_G, P_H, "fa"},    {MK_NONE, P_G, P_L, "fi"},    {MK_NONE, P_G, P_SC, "fe"},
+    {MK_NONE, P_G, P_SL, "fo"},   {MK_NONE, P_G, P_DT, "fyu"},  {MK_NONE, P_C, P_SC, "che"},
+    {MK_NONE, P_S, P_SC, "she"},  {MK_NONE, P_L, P_SC, "ye"},   {MK_NONE, P_Z, P_H, "tsa"},
+    {MK_NONE, P_Z, P_L, "tsi"},   {MK_NONE, P_Z, P_SC, "tse"},  {MK_NONE, P_Z, P_SL, "tso"},
+    {MK_NONE, P_X, P_H, "qa"},  {MK_NONE, P_V, P_L, "swi"},
 };
 
 typedef struct {
@@ -110,11 +104,11 @@ typedef struct {
 static ngkey_t keys[NG_KEYS];
 static bool  small_next;
 static bool  arrow_next;
-// The letter put before [ and ] by the key outside the engine: z after Y, s
-// after the middle-finger shift + Y, or 0.
+// The letter put before [ and ] by the key outside the engine: z after the
+// toku key (the middle-finger shift + Z), s after both shifts + Z, or 0.
 static char bracket_prefix;
 
-// Y and then H, J, K or L give the romaji that tokioka's own romaji table turns
+// The toku key and then H, J, K or L give the romaji that tokioka's own romaji table turns
 // into the arrows, as x and then k, t, n or s do on the Onishi layout.
 static const char *arrow_romaji(uint8_t p) {
     switch (p) {
@@ -128,11 +122,8 @@ static const char *arrow_romaji(uint8_t p) {
 
 static bool is_chuu(uint8_t p) { return p == P_D || p == P_K; }
 static bool is_daku(uint8_t p) { return p == P_F || p == P_J; }
-// V and M also give the half dakuten, as in the original Naginata.
-static bool is_handaku(uint8_t p) { return p == P_V || p == P_M; }
+static bool is_handaku(uint8_t p) { return p == P_R || p == P_U; }
 static bool is_shift(uint8_t p) { return is_chuu(p) || is_daku(p) || is_handaku(p); }
-// V and M pressed together are the comma or the period, not shifts of each other.
-static bool is_vm_pair(uint8_t a, uint8_t b) { return is_handaku(a) && is_handaku(b) && a != b; }
 
 // Times as how long ago, so that 16-bit timer wraparound does not matter.
 static uint16_t ago(uint16_t now, uint16_t t) { return (uint16_t)(now - t); }
@@ -195,9 +186,9 @@ static const gen_t *gen_of(uint8_t p) {
 
 static const char *yoon_vowel(uint8_t p) {
     switch (p) {
-        case P_H: return "a";
-        case P_I: return "o";
-        case P_P: return "u";
+        case P_I: return "a";
+        case P_DT: return "u";
+        case P_M: return "o";
         default: return NULL;
     }
 }
@@ -208,22 +199,25 @@ static bool pressed_close(uint8_t a, uint8_t b, uint16_t now) {
     return overlap(a, b, now) > 0 && (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
 }
 
-// The pairs for ! and ? on the bottom row.
-static bool is_mark_pair(uint8_t x, uint8_t y) {
-    return (x == P_DT && (y == P_CM || y == P_SL)) || (y == P_DT && (x == P_CM || x == P_SL));
-}
+// The pair for ? on the bottom row.
+static bool is_mark_pair(uint8_t x, uint8_t y) { return (x == P_DT && y == P_SL) || (x == P_SL && y == P_DT); }
 
 static bool is_yoon_pair(uint8_t x, uint8_t y) { return (gen_of(x) && yoon_vowel(y)) || (gen_of(y) && yoon_vowel(x)); }
 
+// Whether a youon generator other than s is pressed together with x.
+static bool other_gen_in_chord(uint8_t s, uint8_t x, uint16_t now) {
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if (p == s || p == x || !gen_of(p) || !keys[p].live || keys[p].used) continue;
+        if (covers(p, x, now) || pressed_close(p, x, now)) return true;
+    }
+    return false;
+}
+
 // Romaji for a two-key chord of x and y, or NULL.
-static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf, uint16_t now) {
-    // M then V gives the comma and V then M the period, in the order pressed.
-    if (daku == 0 && ((x == P_V && y == P_M) || (x == P_M && y == P_V))) return pressed_before(P_M, P_V, now) ? "," : ".";
-    // ! and ? on the bottom row, like the combos of TK on-choku.
-    if (daku == 0 && ((x == P_CM && y == P_DT) || (x == P_DT && y == P_CM))) return "!";
-    if (daku == 0 && ((x == P_DT && y == P_SL) || (x == P_SL && y == P_DT))) return "?";
+static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
     const gen_t *g = gen_of(x);
     const char  *v = yoon_vowel(y);
+    if (daku == 0 && is_mark_pair(x, y)) return "?";
     if (!g || !v) {
         g = gen_of(y);
         v = yoon_vowel(x);
@@ -244,15 +238,20 @@ static bool in_chord(uint8_t p, uint8_t x, uint16_t now) {
     return keys[p].live && !keys[p].used && covers(p, x, now);
 }
 
-// A gairaion chord that x is part of, or NULL. Sets the marker key.
+// A gairaion chord that x is part of, or NULL. Sets the marker key, or NG_KEYS
+// for a chord without one.
 static const gairai_t *find_gairai(uint8_t x, uint16_t now, uint8_t *marker) {
     for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
         const gairai_t *g = &gairai[i];
         if (!in_chord(g->gen, x, now) || !in_chord(g->vowel, x, now)) continue;
-        const uint8_t cand[2] = {g->marker == MK_HANDAKU ? P_V : P_F, g->marker == MK_HANDAKU ? P_M : P_J};
+        if (g->marker == MK_NONE) {
+            if (x != g->gen && x != g->vowel) continue;
+            *marker = NG_KEYS;
+            return g;
+        }
+        const uint8_t cand[2] = {P_F, P_J};
         for (int j = 0; j < 2; j++) {
             uint8_t m = cand[j];
-            if (m == g->gen || m == g->vowel) continue;
             // A marker key held for earlier kana may still mark this chord.
             if (m != x && !(keys[m].live && covers(m, x, now))) continue;
             if (x != m && x != g->gen && x != g->vowel) continue;
@@ -289,28 +288,36 @@ static void resolve(uint8_t x, uint16_t now) {
     uint8_t mods[4];
     int     nmods = 0, daku = 0;
     bool    chuu = false;
+    int     nchuu = 0;
     for (uint8_t s = 0; s < NG_KEYS; s++) {
-        if (!is_shift(s) || s == x || !keys[s].live || is_vm_pair(s, x)) continue;
+        if (!is_shift(s) || s == x || !keys[s].live) continue;
         if (!covers(s, x, now)) continue;
+        // R is ri as well as the half dakuten: with a youon key and no other
+        // youon generator it is the ri of rya, ryu and ryo.
+        if (gen_of(s) && is_yoon_pair(s, x) && !other_gen_in_chord(s, x, now)) continue;
         if (!ng_post_shift && !is_shift(x) && !pressed_before(s, x, now)) continue;
         mods[nmods++] = s;
         // Both dakuten keys together are still the dakuten; V or M gives the half dakuten.
         if (is_daku(s) && daku < 1) daku = 1;
         if (is_handaku(s)) daku = 2;
-        if (is_chuu(s)) chuu = true;
+        if (is_chuu(s)) {
+            chuu = true;
+            nchuu++;
+        }
     }
 
     // Gairaion chords come first: their vowel key may be a shift key.
     uint8_t         marker;
     const gairai_t *g = find_gairai(x, now, &marker);
     if (g) {
-        skip[marker] = skip[g->gen] = skip[g->vowel] = true;
+        if (marker < NG_KEYS) skip[marker] = true;
+        skip[g->gen] = skip[g->vowel] = true;
         flush_earlier(x, now, skip);
         for (int i = 0; i < 3; i++) {
             uint8_t p = i == 0 ? marker : i == 1 ? g->gen : g->vowel;
-            if (p == x) continue;
+            if (p == x || p >= NG_KEYS) continue;
             // A held dakuten key keeps working as a shift; the others are used up.
-            if ((is_daku(p) || is_handaku(p)) && p == marker) {
+            if (p == marker) {
                 keys[p].used = true;
             } else {
                 keys[p].live = false;
@@ -345,7 +352,7 @@ static void resolve(uint8_t x, uint16_t now) {
         return;
     }
 
-    // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
+    // The key after the toku key gives an arrow, whatever shift is held.
     if (arrow && arrow_romaji(x)) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
@@ -354,6 +361,7 @@ static void resolve(uint8_t x, uint16_t now) {
         emit(arrow_romaji(x));
         return;
     }
+    // The key after the middle-finger shift + Q gives a small kana, whatever shift is held.
     if (small_next && small_face[x]) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
@@ -378,17 +386,17 @@ static void resolve(uint8_t x, uint16_t now) {
         }
     }
 
-    // Two-key chords: youon and vu.
+    // Two-key chords: youon and ?.
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
-        if (y == x || (is_shift(y) && !is_vm_pair(x, y)) || !keys[y].live || keys[y].used) continue;
+        if (y == x || (is_shift(y) && !gen_of(y)) || !keys[y].live || keys[y].used) continue;
         if (is_mark_pair(x, y)) {
-            // ! and ? are judged by press time alone, like a QMK combo.
+            // ? is judged by press time alone, like a QMK combo.
             if (!pressed_close(x, y, now)) continue;
         } else if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) {
             continue;
         }
-        const char *r = pair_romaji(x, y, daku, buf, now);
+        const char *r = pair_romaji(x, y, daku, buf);
         if (!r) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         skip[y] = true;
@@ -400,6 +408,8 @@ static void resolve(uint8_t x, uint16_t now) {
     }
 
     const char *r = single(x, daku, chuu);
+    // Both middle-finger shifts + Z is the toku key for s[ and s].
+    if (x == P_Z && nchuu == 2 && daku == 0) r = "#B";
 
     // J+H alone turns the IME on and F+G alone turns it off, like the hj and fg
     // combos of TK on-choku. Their dakuten (gu, di) are typed with the other hand.
@@ -449,8 +459,8 @@ static void resolve(uint8_t x, uint16_t now) {
     emit(r);
 }
 
-// ! and ? are typed as soon as their pair goes down within the youon gap,
-// when no other key is held. Both keys then give nothing on release.
+// ? is typed as soon as its pair goes down within the youon gap, when no
+// other key is held. Both keys then give nothing on release.
 static void mark_on_press(uint8_t pos, uint16_t time) {
     int8_t q = -1;
     for (uint8_t k = 0; k < NG_KEYS; k++) {
@@ -462,7 +472,7 @@ static void mark_on_press(uint8_t pos, uint16_t time) {
     bool skip[NG_KEYS] = {false};
     skip[pos] = skip[q] = true;
     flush_earlier((uint8_t)q, time, skip);
-    emit(pos == P_SL || q == P_SL ? "?" : "!");
+    emit("?");
     keys[pos].live = keys[q].live = false;
     keys[pos].used = keys[q].used = true;
 }
@@ -507,8 +517,8 @@ static void settle(uint16_t now) {
 static bool in_gairai(const gairai_t *g, uint8_t p);
 
 // A shift key tapped inside the press of a held kana key, while no other kana
-// key is held, shifts that kana at once, as Kikyo did: holding u (L) and tapping
-// D then F gives tsu then du, also when D and F roll. The kana key then gives
+// key is held, shifts that kana at once, as Kikyo did: holding i (L) and tapping
+// D then F gives so then zo, also when D and F roll. The kana key then gives
 // nothing on release.
 static bool tap_inside_kana(uint8_t pos, uint16_t now) {
     if (!is_shift(pos) || !keys[pos].live || keys[pos].used) return false;
@@ -521,6 +531,8 @@ static bool tap_inside_kana(uint8_t pos, uint16_t now) {
     if (k < 0 || !keys[k].live || (keys[k].used && !keys[k].anchor)) return false;
     // J inside H and F inside G are the IME keys, in either order.
     if (!keys[k].used && ((k == P_H && pos == P_J) || (k == P_G && pos == P_F))) return false;
+    // R inside a held youon key is the ri of rya, ryu and ryo.
+    if (!keys[k].used && gen_of(pos) && is_yoon_pair((uint8_t)k, pos)) return false;
     uint16_t sk = start_ago(&keys[k], now);
     if (sk <= start_ago(&keys[pos], now)) return false;
     // Taps are the shift keys pressed inside k that are still to be decided.
@@ -621,7 +633,7 @@ bool ng_pending(void) {
 // Whether p takes part in gairaion chord g, as its marker, generator or vowel.
 static bool in_gairai(const gairai_t *g, uint8_t p) {
     if (p == g->gen || p == g->vowel) return true;
-    return g->marker == MK_HANDAKU ? is_handaku(p) : is_daku(p);
+    return g->marker == MK_DAKU && is_daku(p);
 }
 
 bool ng_can_chord(uint8_t a, uint8_t b) {
@@ -641,7 +653,7 @@ bool ng_can_chord(uint8_t a, uint8_t b) {
     }
     char buf[8];
     for (int d = 0; d <= 2; d++) {
-        if (pair_romaji(a, b, d, buf, 0)) return true;
+        if (pair_romaji(a, b, d, buf)) return true;
     }
     return false;
 }
