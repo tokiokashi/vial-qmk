@@ -222,7 +222,6 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
 
 void housekeeping_task_user(void) {
     vm_word_task();
-    ng_tick(timer_read());
     if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
     int8_t p = inner_pos, h = inner_holder;
     inner_pos = -1;
@@ -438,7 +437,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         ng_flush(time);
     }
     // Entries of the romaji table for keys from other layers:
-    // - the toku key (the middle-finger shift + Z) and then [ or ] give z[ and
+    // - the toku key (the middle-finger shift + T) and then [ or ] give z[ and
     //   z], the double corner brackets, and both shifts + Z gives s[ and s],
     //   the lenticular ones
     // - the toku key and then a digit gives m and the digit, the circled number

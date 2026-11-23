@@ -24,20 +24,20 @@ enum {
 // "#A": next key an arrow, z[ z] or a circled digit,
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ku", "ta", "ri", ",",   "se", "ha", "te", "re", "ra",
+    "#X", "ku", "ta", "ri", ",",   ".",  "ha", "te", "re", "ra",
     "ltu", "si", "nn", "no", "-",  "a",  "ka", "na", "i",  "sa",
     "tu", "ki", "ru", "su", "ni",  "ke", "ko", "u",  "to", "o",
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    NULL, "mi", NULL, "so", ".",   "/",  "mu", "ya", "he", "nu",
-    "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, NULL, "e",
-    "#A", "me", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
+    NULL, "mi", NULL, "so", "#A",  "/",  "mu", "ya", "he", "nu",
+    "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, "se", "e",
+    NULL, "me", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gu", "da", "zo", NULL,  "ze", "ba", "de", "be", NULL,
-    "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, NULL, "za",
+    NULL, "gu", "da", "zo", NULL,  NULL, "ba", "de", "be", NULL,
+    "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, "ze", "za",
     "du", "gi", "di", "zu", NULL,  "ge", "go", "vu", "do", "wo",
 };
 // The half dakuten on the comma key T gives !.
@@ -104,7 +104,7 @@ typedef struct {
 static ngkey_t keys[NG_KEYS];
 static bool  arrow_next;
 // The letter put before [ and ] by the key outside the engine: z after the
-// toku key (the middle-finger shift + Z), s after both shifts + Z, or 0.
+// toku key (the middle-finger shift + T), s after both shifts + Z, or 0.
 static char bracket_prefix;
 
 // The toku key and then H, J, K or L give the romaji that tokioka's own romaji table turns
@@ -149,23 +149,8 @@ static bool covers(uint8_t b, uint8_t a, uint16_t now) {
 
 static bool pressed_before(uint8_t a, uint8_t b, uint16_t now) { return start_ago(&keys[a], now) >= start_ago(&keys[b], now); }
 
-// T tapped twice gives the period, so the comma of a plain T tap waits this
-// long after its release for a second tap. Any other output or key sends it.
-#define NG_DOUBLE_TAP_MS 200
-
-static bool     comma_wait;  // a comma from T is held back
-static uint16_t comma_t;     // when its T was released
-static bool     period_next; // T went down again in time: its tap gives the period
-
-static void send_comma(void) {
-    if (!comma_wait) return;
-    comma_wait = false;
-    ng_send_romaji(",");
-}
-
 static void emit(const char *r) {
     if (!r) return;
-    send_comma();
     if (r[0] == '#') {
         if (r[1] == 'A' || r[1] == 'B') {
             arrow_next     = r[1] == 'A';
@@ -362,7 +347,10 @@ static void resolve(uint8_t x, uint16_t now) {
     // The key after the toku key gives an arrow, whatever shift is held, and
     // the comma and the period after it give z, and z. for the two- and
     // three-dot leaders of tokioka's own romaji table.
-    const char *ar = !arrow ? NULL : x == P_T && daku == 0 ? (chuu ? "z." : "z,") : arrow_romaji(x);
+    const char *ar = !arrow                           ? NULL
+                     : x == P_T && daku == 0 && !chuu ? "z,"
+                     : x == P_Y && daku == 0 && !chuu ? "z."
+                                                      : arrow_romaji(x);
     if (ar) {
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         flush_earlier(x, now, skip);
@@ -455,25 +443,6 @@ static void resolve(uint8_t x, uint16_t now) {
     for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
     flush_earlier(x, now, skip);
     for (int i = 0; i < nmods; i++) keys[mods[i]].used = true;
-    if (x == P_T) {
-        bool twice  = period_next;
-        period_next = false;
-        if (r == base_face[P_T] && nmods == 0) {
-            if (twice) {
-                emit(".");
-            } else {
-                send_comma();
-                comma_wait = true;
-                comma_t    = now;
-            }
-            return;
-        }
-        // The second T made something else, so the first one's comma goes first.
-        if (twice) {
-            comma_wait = true;
-            send_comma();
-        }
-    }
     emit(r);
 }
 
@@ -497,16 +466,6 @@ static void mark_on_press(uint8_t pos, uint16_t time) {
 
 void ng_press(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
-    if (comma_wait) {
-        bool alone = true;
-        for (uint8_t q = 0; q < NG_KEYS; q++) alone = alone && !keys[q].down;
-        if (pos == P_T && alone && ago(time, comma_t) <= NG_DOUBLE_TAP_MS) {
-            comma_wait  = false;
-            period_next = true;
-        } else {
-            send_comma();
-        }
-    }
     if (keys[pos].live) resolve(pos, time);
     keys[pos] = (ngkey_t){.t_down = time, .down = true, .live = true};
     for (uint8_t q = 0; q < NG_KEYS; q++) {
@@ -621,7 +580,6 @@ void ng_release(uint8_t pos, uint16_t time) {
 }
 
 void ng_flush(uint16_t time) {
-    send_comma();
     // A key outside the engine came while these were held.
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         if (keys[p].down) keys[p].touched = true;
@@ -651,12 +609,7 @@ char ng_take_bracket_prefix(void) {
     return c;
 }
 
-void ng_tick(uint16_t time) {
-    if (comma_wait && ago(time, comma_t) > NG_DOUBLE_TAP_MS) send_comma();
-}
-
 bool ng_pending(void) {
-    if (comma_wait) return true;
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         if (keys[p].live) return true;
     }
