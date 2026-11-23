@@ -105,10 +105,10 @@ static void take_held_mods(uint16_t time) {
 
 // A kana key released inside a held tap-hold key, such as yo inside hi, waits
 // this long. If the tap-hold key is still held then, it becomes its modifier
-// and the inner key is typed with it (Ctrl+I); otherwise they make kana (hyo).
-// V and M are left out as holders: they are Shift for the capitals below, and
-// held with a holder they become Shift along with it (Ctrl+Shift+T).
-// The . and / pair for ? is left out too, as . and / are tap-hold keys.
+// and the inner key is typed with it (Ctrl+I, or Shift+A for a capital with V
+// or M); otherwise they make kana (hyo). Held with a holder, V and M become
+// Shift along with it (Ctrl+Shift+T).
+// The . and / pair for ? is left out, as . and / are tap-hold keys.
 #define INNER_WAIT_MS 60
 
 static int8_t   inner_pos = -1, inner_holder = -1;
@@ -116,10 +116,10 @@ static uint16_t inner_time;
 
 static bool is_vm(int8_t p) { return p == NG_POS_V || p == NG_POS_M; }
 
-// A held tap-hold key pressed before p, other than V and M, or -1.
+// A held tap-hold key pressed before p, or -1.
 static int8_t held_tap_hold_before(uint8_t p, uint16_t time) {
     for (uint8_t h = 0; h < NG_KEYS; h++) {
-        if (h == p || is_vm(h) || retro_mods[h] || !ng_down(h)) continue;
+        if (h == p || retro_mods[h] || !ng_down(h)) continue;
         // The ? pair is a kana chord however it is released.
         if (ng_mark_chord(h, p, time)) continue;
         if (ng_down_ms(h, time) <= ng_down_ms(p, time)) continue;
@@ -138,7 +138,7 @@ static void inner_settle(void) {
 
 // V or M held alone for VM_WORD_MS gives no kana and is Shift until released,
 // for capitals. The other one of V and M is a letter then. Another key pressed
-// before that makes the kana as usual.
+// before that follows the inner-key rule above, as with Ctrl and Alt.
 // The hold time follows the tapping term set in Vial, so a V or M hold matches
 // the other tap-hold keys. The lone shift hold below uses it too.
 #ifdef QMK_SETTINGS
@@ -233,6 +233,12 @@ void housekeeping_task_user(void) {
     // Ctrl+Shift, become their modifiers.
     ng_forget(p);
     take_held_mods(timer_read());
+    // V or M as Shift alone starts the capital as the lone hold does, so one
+    // letter typed in it goes on as an English word after the key is let go.
+    if (is_vm(h) && !(get_mods() & MOD_MASK_CAG)) {
+        vm_word         = h;
+        vm_word_letters = 0;
+    }
     // Type the inner key again through the keymap, so key overrides apply.
     action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, true));
     action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, false));
