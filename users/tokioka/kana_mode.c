@@ -108,6 +108,7 @@ static void take_held_mods(uint16_t time) {
 // and the inner key is typed with it (Ctrl+I); otherwise they make kana (hyo).
 // V and M are left out as holders: they are Shift for the capitals below, and
 // held with a holder they become Shift along with it (Ctrl+Shift+T).
+// The . and / pair for ? is left out too, as . and / are tap-hold keys.
 #define INNER_WAIT_MS 60
 
 static int8_t   inner_pos = -1, inner_holder = -1;
@@ -119,6 +120,8 @@ static bool is_vm(int8_t p) { return p == NG_POS_V || p == NG_POS_M; }
 static int8_t held_tap_hold_before(uint8_t p, uint16_t time) {
     for (uint8_t h = 0; h < NG_KEYS; h++) {
         if (h == p || is_vm(h) || retro_mods[h] || !ng_down(h)) continue;
+        // The ? pair is a kana chord however it is released.
+        if (ng_mark_chord(h, p, time)) continue;
         if (ng_down_ms(h, time) <= ng_down_ms(p, time)) continue;
         if (IS_QK_MOD_TAP(keycode_at_keymap_location(0, key_at[h].row, key_at[h].col))) return h;
     }
@@ -459,7 +462,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
 // The bottom row has tap-hold keys in the .vil (Ctrl, Alt, Shift). While typing
 // f1898 they are plain kana keys on layer 0, so a key pressed last in a
 // chord, such as yo in kyo after ki, never waits out the tapping term and
-// becomes its modifier. Held, they still become modifiers through take_held_mods and the
+// becomes its modifier, and . and / reach the engine at once for ?. Held, they still become modifiers through take_held_mods and the
 // inner-key rule. With Ctrl, Alt or GUI already on when one goes down, it
 // keeps its tap-hold for shortcuts, decided at the press so its release
 // matches.

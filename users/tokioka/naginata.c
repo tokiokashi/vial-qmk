@@ -22,7 +22,7 @@ enum {
 };
 
 // "#S": next kana small, "#A": next key an arrow, z[ z] or a circled digit,
-// "#X": Esc.
+// "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "#X", "ki", "ta", "ri", ",",   "ke", "re", "te", "ha", "ra",
     "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
@@ -104,7 +104,7 @@ static ngkey_t keys[NG_KEYS];
 static bool  small_next;
 static bool  arrow_next;
 // The letter put before [ and ] by the key outside the engine: z after the
-// toku key (the middle-finger shift + Z), or 0.
+// toku key (the middle-finger shift + Z), s after both shifts + Z, or 0.
 static char bracket_prefix;
 
 // The toku key and then H, J, K or L give the romaji that tokioka's own romaji table turns
@@ -154,10 +154,10 @@ static void emit(const char *r) {
     if (r[0] == '#') {
         if (r[1] == 'S') {
             small_next = true;
-        } else if (r[1] == 'A') {
+        } else if (r[1] == 'A' || r[1] == 'B') {
             small_next     = false;
-            arrow_next     = true;
-            bracket_prefix = 'z';
+            arrow_next     = r[1] == 'A';
+            bracket_prefix = r[1] == 'A' ? 'z' : 's';
         } else if (r[1] == 'X') {
             small_next = false;
             ng_tap_esc();
@@ -198,6 +198,9 @@ static bool pressed_close(uint8_t a, uint8_t b, uint16_t now) {
     return overlap(a, b, now) > 0 && (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
 }
 
+// The pair for ? on the bottom row.
+static bool is_mark_pair(uint8_t x, uint8_t y) { return (x == P_DT && y == P_SL) || (x == P_SL && y == P_DT); }
+
 static bool is_yoon_pair(uint8_t x, uint8_t y) { return (gen_of(x) && yoon_vowel(y)) || (gen_of(y) && yoon_vowel(x)); }
 
 // Whether a youon generator other than s is pressed together with x.
@@ -213,6 +216,7 @@ static bool other_gen_in_chord(uint8_t s, uint8_t x, uint16_t now) {
 static const char *pair_romaji(uint8_t x, uint8_t y, int daku, char *buf) {
     const gen_t *g = gen_of(x);
     const char  *v = yoon_vowel(y);
+    if (daku == 0 && is_mark_pair(x, y)) return "?";
     if (!g || !v) {
         g = gen_of(y);
         v = yoon_vowel(x);
@@ -283,6 +287,7 @@ static void resolve(uint8_t x, uint16_t now) {
     uint8_t mods[4];
     int     nmods = 0, daku = 0;
     bool    chuu = false;
+    int     nchuu = 0;
     for (uint8_t s = 0; s < NG_KEYS; s++) {
         if (!is_shift(s) || s == x || !keys[s].live) continue;
         if (!covers(s, x, now)) continue;
@@ -294,7 +299,10 @@ static void resolve(uint8_t x, uint16_t now) {
         // Both dakuten keys together are still the dakuten; V or M gives the half dakuten.
         if (is_daku(s) && daku < 1) daku = 1;
         if (is_handaku(s)) daku = 2;
-        if (is_chuu(s)) chuu = true;
+        if (is_chuu(s)) {
+            chuu = true;
+            nchuu++;
+        }
     }
 
     // Gairaion chords come first: their vowel key may be a shift key.
@@ -377,11 +385,16 @@ static void resolve(uint8_t x, uint16_t now) {
         }
     }
 
-    // Two-key chords: youon.
+    // Two-key chords: youon and ?.
     char buf[8];
     for (uint8_t y = 0; y < NG_KEYS; y++) {
         if (y == x || (is_shift(y) && !gen_of(y)) || !keys[y].live || keys[y].used) continue;
-        if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) continue;
+        if (is_mark_pair(x, y)) {
+            // ? is judged by press time alone, like a QMK combo.
+            if (!pressed_close(x, y, now)) continue;
+        } else if (!covers(y, x, now) && !(is_yoon_pair(x, y) && pressed_close(x, y, now))) {
+            continue;
+        }
         const char *r = pair_romaji(x, y, daku, buf);
         if (!r) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
@@ -394,6 +407,8 @@ static void resolve(uint8_t x, uint16_t now) {
     }
 
     const char *r = single(x, daku, chuu);
+    // Both middle-finger shifts + Z is the toku key for s[ and s].
+    if (x == P_Z && nchuu == 2 && daku == 0) r = "#B";
 
     // J+H alone turns the IME on and F+G alone turns it off, like the hj and fg
     // combos of TK on-choku. Their dakuten (gu, di) are typed with the other hand.
@@ -443,6 +458,24 @@ static void resolve(uint8_t x, uint16_t now) {
     emit(r);
 }
 
+// ? is typed as soon as its pair goes down within the youon gap, when no
+// other key is held. Both keys then give nothing on release.
+static void mark_on_press(uint8_t pos, uint16_t time) {
+    int8_t q = -1;
+    for (uint8_t k = 0; k < NG_KEYS; k++) {
+        if (k == pos || !keys[k].live || !keys[k].down) continue;
+        if (q >= 0 || keys[k].used || !is_mark_pair(pos, k)) return;
+        q = k;
+    }
+    if (q < 0 || start_ago(&keys[q], time) > ng_yoon_gap_ms) return;
+    bool skip[NG_KEYS] = {false};
+    skip[pos] = skip[q] = true;
+    flush_earlier((uint8_t)q, time, skip);
+    emit("?");
+    keys[pos].live = keys[q].live = false;
+    keys[pos].used = keys[q].used = true;
+}
+
 void ng_press(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     if (keys[pos].live) resolve(pos, time);
@@ -452,6 +485,7 @@ void ng_press(uint8_t pos, uint16_t time) {
         keys[q].touched   = true;
         keys[pos].touched = true;
     }
+    mark_on_press(pos, time);
 }
 
 // Whether a key that p may still shift is held: a kana key, or a shift key pressed after p.
@@ -621,6 +655,12 @@ bool ng_can_chord(uint8_t a, uint8_t b) {
         if (pair_romaji(a, b, d, buf)) return true;
     }
     return false;
+}
+
+bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
+    if (a >= NG_KEYS || b >= NG_KEYS || !is_mark_pair(a, b)) return false;
+    uint16_t sa = start_ago(&keys[a], time), sb = start_ago(&keys[b], time);
+    return (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
 }
 
 bool ng_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }
