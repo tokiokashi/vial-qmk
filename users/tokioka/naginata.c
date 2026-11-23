@@ -25,7 +25,7 @@ enum {
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
     "#X", "ku", "ta", "ri", ",",   "ke", "ha", "te", "re", "ra",
-    "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
+    "ltu", "si", "nn", "no", "-",  "a",  "ka", "na", "i",  "sa",
     "tu", "ki", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
@@ -51,7 +51,7 @@ static const char *const handaku_face[NG_KEYS] = {
 // lka and lke are entries of tokioka's own romaji table.
 static const char *const small_face[NG_KEYS] = {
     NULL,  NULL,  NULL,  NULL,  NULL,   "lke", NULL,  "xya", NULL,  NULL,
-    NULL,  NULL,  NULL,  NULL,  "ltu",  "xa",  "lka", NULL,  "xi",  "xe",
+    "ltu", NULL,  NULL,  NULL,  NULL,   "xa",  "lka", NULL,  "xi",  "xe",
     "ltu", NULL,  NULL,  "xwa", NULL,   NULL,  "xyo", "xu",  "xyu", "xo",
 };
 
