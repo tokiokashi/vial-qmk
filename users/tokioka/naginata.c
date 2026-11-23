@@ -1,5 +1,4 @@
-// Kana engine for f1898UO, tokioka's own chord layout: f1898 with the U and O
-// keys swapped.
+// Kana engine for tokiokashiki, tokioka's own chord layout.
 //
 // Every key is decided when it is released. A shift key (D/K = middle-finger
 // shift, F/J = dakuten, R/U = half dakuten) applies to a kana key when the two
@@ -25,21 +24,21 @@ enum {
 // "#A": next key an arrow, z[ z] or a circled digit,
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ki", "ta", "ri", ",",   "ke", "ha", "te", "re", "ra",
+    "#X", "ku", "ta", "ri", ",",   "ke", "ha", "te", "re", "ra",
     "-",  "si", "nn", "no", "ltu", "a",  "ka", "na", "i",  "sa",
-    "tu", "ku", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
+    "tu", "ki", "ru", "su", "ni",  "se", "ko", "u",  "to", "o",
 };
 // The middle-finger shift face. D and K together give ro, the D entry.
 static const char *const shift_face[NG_KEYS] = {
-    NULL, "me", NULL, NULL, ".",   NULL, "mu", "ya", "he", "nu",
-    "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, "so", "e",
-    "#A", "mi", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
+    NULL, "mi", NULL, "so", ".",   NULL, "mu", "ya", "he", "nu",
+    "hi", "mo", "ro", NULL, "hu",  "ho", "ma", NULL, NULL, "e",
+    "#A", "me", "ti", "wa", NULL,  NULL, "yo", NULL, "yu", "ne",
 };
 // Dakuten of whichever kana on the key, base or shift face, can take one.
 static const char *const daku_face[NG_KEYS] = {
-    NULL, "gi", "da", NULL, NULL,  "ge", "ba", "de", "be", NULL,
-    "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, "zo", "za",
-    "du", "gu", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
+    NULL, "gu", "da", "zo", NULL,  "ge", "ba", "de", "be", NULL,
+    "bi", "zi", NULL, NULL, "bu",  "bo", "ga", NULL, NULL, "za",
+    "du", "gi", "di", "zu", NULL,  "ze", "go", "vu", "do", "wo",
 };
 // The half dakuten on the comma key T gives !.
 static const char *const handaku_face[NG_KEYS] = {
@@ -62,8 +61,8 @@ typedef struct {
     const char *plain, *daku, *handaku;
 } gen_t;
 static const gen_t gens[] = {
-    {P_W, "ky", "gy", NULL}, {P_S, "sy", "zy", NULL}, {P_C, "ty", "dy", NULL}, {P_A, "hy", "by", "py"},
-    {P_X, "my", NULL, NULL}, {P_R, "ry", NULL, NULL}, {P_B, "ny", NULL, NULL},
+    {P_X, "ky", "gy", NULL}, {P_S, "sy", "zy", NULL}, {P_C, "ty", "dy", NULL}, {P_A, "hy", "by", "py"},
+    {P_W, "my", NULL, NULL}, {P_R, "ry", NULL, NULL}, {P_B, "ny", NULL, NULL},
 };
 
 // Gairaion: a generator key and a vowel key pressed together, by key position
@@ -75,11 +74,11 @@ typedef struct {
 } gairai_t;
 // The dakuten rows come first, so a held dakuten key picks them.
 static const gairai_t gairai[] = {
-    // Generators: te = I, to = ., u = ",", fu = G, tsu = Z, ku = X, su = V, si = S, ti = C, i = L.
+    // Generators: te = I, to = ., u = ",", fu = G, tsu = Z, ku = W, su = V, si = S, ti = C, i = L.
     // Vowels: a = H, i = L, u = ",", e = ;, o = /, yu = ".".
     {MK_DAKU, P_I, P_L, "dhi"},   {MK_DAKU, P_I, P_DT, "dhu"},  {MK_DAKU, P_DT, P_CM, "dwu"},
     {MK_DAKU, P_CM, P_H, "va"},   {MK_DAKU, P_CM, P_L, "vi"},   {MK_DAKU, P_CM, P_SC, "ve"},
-    {MK_DAKU, P_CM, P_SL, "vo"},  {MK_DAKU, P_S, P_SC, "je"},   {MK_DAKU, P_X, P_H, "gwa"},
+    {MK_DAKU, P_CM, P_SL, "vo"},  {MK_DAKU, P_S, P_SC, "je"},   {MK_DAKU, P_W, P_H, "gwa"},
     {MK_DAKU, P_V, P_L, "zwi"},
     {MK_NONE, P_I, P_L, "thi"},   {MK_NONE, P_I, P_DT, "thu"},  {MK_NONE, P_DT, P_CM, "twu"},
     {MK_NONE, P_CM, P_L, "wi"},   {MK_NONE, P_CM, P_SC, "we"},  {MK_NONE, P_CM, P_SL, "who"},
@@ -87,7 +86,7 @@ static const gairai_t gairai[] = {
     {MK_NONE, P_G, P_SL, "fo"},   {MK_NONE, P_G, P_DT, "fyu"},  {MK_NONE, P_C, P_SC, "che"},
     {MK_NONE, P_S, P_SC, "she"},  {MK_NONE, P_L, P_SC, "ye"},   {MK_NONE, P_Z, P_H, "tsa"},
     {MK_NONE, P_Z, P_L, "tsi"},   {MK_NONE, P_Z, P_SC, "tse"},  {MK_NONE, P_Z, P_SL, "tso"},
-    {MK_NONE, P_X, P_H, "qa"},  {MK_NONE, P_V, P_L, "swi"},
+    {MK_NONE, P_W, P_H, "qa"},  {MK_NONE, P_V, P_L, "swi"},
 };
 
 typedef struct {
@@ -546,8 +545,8 @@ static void settle(uint16_t now) {
 static bool in_gairai(const gairai_t *g, uint8_t p);
 
 // A shift key tapped inside the press of a held kana key, while no other kana
-// key is held, shifts that kana at once, as Kikyo did: holding i (L) and tapping
-// D then F gives so then zo, also when D and F roll. The kana key then gives
+// key is held, shifts that kana at once, as Kikyo did: holding si (S) and tapping
+// D then F gives mo then zi, also when D and F roll. The kana key then gives
 // nothing on release.
 static bool tap_inside_kana(uint8_t pos, uint16_t now) {
     if (!is_shift(pos) || !keys[pos].live || keys[pos].used) return false;
