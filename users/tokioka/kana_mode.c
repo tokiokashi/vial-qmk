@@ -492,9 +492,10 @@ uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
 // A tap-hold key and a key pressed during it that make kana together, such as
 // hi and yo for hyo or ha and a dakuten key, are settled as a tap at once. Any
 // other key leaves it to permissive hold, so Ctrl and the like work without
-// waiting out the tapping term.
+// waiting out the tapping term. In an English word the keys are letters, so
+// V or M held with t, as in YouTube, is Shift by permissive hold too.
 int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, uint16_t other_keycode, keyrecord_t *other_record) {
-    if (!(naginata_on() && on_kana_layer()) || (get_mods() | get_oneshot_mods())) return -1;
+    if (eng_word || !(naginata_on() && on_kana_layer()) || (get_mods() | get_oneshot_mods())) return -1;
     int8_t a = ng_pos(tap_hold_record->event.key), b = ng_pos(other_record->event.key);
     if (a < 0 || b < 0 || !ng_can_chord(a, b)) return -1;
     return 0;
