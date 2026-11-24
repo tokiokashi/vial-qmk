@@ -24,7 +24,7 @@ enum {
 // "#A": next key an arrow, z[ z] or a circled digit,
 // "#B": next [ ] as s[ s], "#X": Esc.
 static const char *const base_face[NG_KEYS] = {
-    "#X", "ku", "ta", "ri", ",",   ".",  "ha", "te", "re", "ra",
+    "#X", "ku", "ta", "ri", ",",   ".",  "ha", "te", "ra", "re",
     "ltu", "si", "nn", "no", "-",  "a",  "ka", "na", "i",  "sa",
     "tu", "ki", "ru", "su", "ni",  "ke", "ko", "u",  "to", "o",
 };
