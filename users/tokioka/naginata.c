@@ -149,6 +149,12 @@ static bool covers(uint8_t b, uint8_t a, uint16_t now) {
 
 static bool pressed_before(uint8_t a, uint8_t b, uint16_t now) { return start_ago(&keys[a], now) >= start_ago(&keys[b], now); }
 
+// Whether Q can give k's small kana by when it went down: before k, or
+// within the youon gap after it, so the two may be pressed together.
+static bool q_in_time(uint8_t k, uint16_t now) {
+    return pressed_before(P_Q, k, now) || start_ago(&keys[k], now) - start_ago(&keys[P_Q], now) <= ng_yoon_gap_ms;
+}
+
 static void emit(const char *r) {
     if (!r) return;
     if (r[0] == '#') {
@@ -328,8 +334,9 @@ static void resolve(uint8_t x, uint16_t now) {
         if (y == x || (x != P_Q && y != P_Q) || !small_face[k]) continue;
         // A held Q stays a shift for small kana, like the continuous shift.
         if (!keys[y].live || (keys[y].used && y != P_Q)) continue;
-        // Q is held first, and the other key's press lies mostly within Q's.
-        if (!pressed_before(P_Q, k, now)) continue;
+        // Q goes down with the other key, and the press of the one let go
+        // first lies mostly within the other's.
+        if (!q_in_time(k, now)) continue;
         if (!covers(y, x, now) && !(!keys[y].down && covers(x, y, now))) continue;
         for (int i = 0; i < nmods; i++) skip[mods[i]] = true;
         skip[y] = true;
@@ -574,7 +581,7 @@ void ng_release(uint8_t pos, uint16_t time) {
         return;
     }
     // A shift key pressed while Q is held is a kana key for the small kana.
-    bool q_small = keys[P_Q].live && keys[P_Q].down && pressed_before(P_Q, pos, time) && small_face[pos];
+    bool q_small = keys[P_Q].live && keys[P_Q].down && q_in_time(pos, time) && small_face[pos];
     if (!is_shift(pos) || q_small) resolve(pos, time);
     settle(time);
 }
