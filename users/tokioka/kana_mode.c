@@ -107,7 +107,8 @@ static void take_held_mods(uint16_t time) {
 // this long. If the tap-hold key is still held then, it becomes its modifier
 // and the inner key is typed with it (Ctrl+I, or Shift+A for a capital with V
 // or M); otherwise they make kana (hyo). Held with a holder, V and M become
-// Shift along with it (Ctrl+Shift+T).
+// Shift along with it (Ctrl+Shift+T). Another kana key pressed or let go
+// before then decides it at once while the tap-hold key is held.
 // The . and / pair for ? is left out, as . and / are tap-hold keys.
 #define INNER_WAIT_MS 60
 
@@ -220,18 +221,30 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
     vm_time    = time;
 }
 
-void housekeeping_task_user(void) {
-    vm_word_task();
-    if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
-    int8_t p = inner_pos, h = inner_holder;
-    inner_pos = -1;
-    if (!ng_down(h)) {
-        ng_release(p, inner_time);
-        return;
+// The holder of the waiting release stays held: it becomes its modifier,
+// and the inner key and the kana keys pressed after the holder and still held
+// are typed with it in press order, as in PR. Kana keys pressed before the
+// holder are sent first as kana. When cur is let go now, its release is
+// typed here too; returns whether it was.
+static bool inner_to_mods(uint16_t time, int8_t cur) {
+    int8_t   p = inner_pos, h = inner_holder;
+    uint16_t hd = ng_down_ms(h, time);
+    int8_t   ord[NG_KEYS];
+    uint8_t  n = 0;
+    inner_pos  = -1;
+    for (uint8_t q = 0; q < NG_KEYS; q++) {
+        if (q != p) {
+            if (q == h || retro_mods[q] || !ng_down(q) || ng_down_ms(q, time) >= hd) continue;
+            // A held tap-hold key becomes its modifier along with the holder.
+            if (IS_QK_MOD_TAP(keycode_at_keymap_location(0, key_at[q].row, key_at[q].col))) continue;
+        }
+        uint8_t i = n++;
+        for (; i > 0 && ng_down_ms(ord[i - 1], time) < ng_down_ms(q, time); i--) ord[i] = ord[i - 1];
+        ord[i] = q;
     }
+    for (uint8_t i = 0; i < n; i++) ng_forget(ord[i]);
     // The holder and any other held tap-hold key, V and M among them for
     // Ctrl+Shift, become their modifiers.
-    ng_forget(p);
     take_held_mods(timer_read());
     // V or M as Shift alone starts the capital as the lone hold does, so one
     // letter typed in it goes on as an English word after the key is let go.
@@ -239,9 +252,27 @@ void housekeeping_task_user(void) {
         vm_word         = h;
         vm_word_letters = 0;
     }
-    // Type the inner key again through the keymap, so key overrides apply.
-    action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, true));
-    action_exec(MAKE_KEYEVENT(key_at[p].row, key_at[p].col, false));
+    // Type the keys again through the keymap, so key overrides apply.
+    bool took = false;
+    for (uint8_t i = 0; i < n; i++) {
+        int8_t q = ord[i];
+        action_exec(MAKE_KEYEVENT(key_at[q].row, key_at[q].col, true));
+        if (q == p || q == cur) action_exec(MAKE_KEYEVENT(key_at[q].row, key_at[q].col, false));
+        took = took || q == cur;
+    }
+    return took;
+}
+
+void housekeeping_task_user(void) {
+    vm_word_task();
+    if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
+    if (!ng_down(inner_holder)) {
+        int8_t p  = inner_pos;
+        inner_pos = -1;
+        ng_release(p, inner_time);
+        return;
+    }
+    inner_to_mods(timer_read(), -1);
 }
 
 // The keyboard cannot see the IME, and another window may have it in the
@@ -388,11 +419,25 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         }
     }
 
+    // Another kana key pressed or let go while the holder is still held, as
+    // in a quick PR, decides the waiting release at once: the holder becomes
+    // its modifier, unless it makes kana with the inner key, as hi does with
+    // yo. Any other event settles the waiting release as kana.
+    if (inner_pos >= 0) {
+        int8_t h = inner_holder;
+        if (pos >= 0 && pos != h && ng_down(h) && !ng_can_chord(h, inner_pos)) {
+            if (inner_to_mods(time, pressed ? -1 : pos)) {
+                lone_track(pos, pressed, time);
+                vm_track(pos, pressed, time);
+                return false;
+            }
+        } else {
+            inner_settle();
+        }
+    }
+
     lone_track(pos, pressed, time);
     vm_track(pos, pressed, time);
-
-    // Any other event first settles a waiting release as kana.
-    if (inner_pos >= 0) inner_settle();
 
     // A key sent as it is, such as a letter typed with Shift, is released the
     // same way even if the Shift is gone by then.
