@@ -156,7 +156,8 @@ static uint16_t vm_time;
 // One letter typed in that Shift and the key let go: the word goes on in
 // English, as in Tokyo, the keys passing as they are until Enter, Esc, an IME
 // key (hj, fg), Tab or a shortcut, or until the cursor is left of the capital.
-// Two or more letters, as in USB, go back to kana at once.
+// Two or more letters, as in USB, go back to kana at once, and so does a
+// second capital typed with the other Shift, as in OK.
 static uint8_t vm_word_letters;
 static bool    eng_word;
 static int16_t eng_len, eng_pos;
@@ -391,6 +392,10 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         } else if (k == KC_END) {
             eng_pos = eng_len;
         } else if (IS_BASIC_KEYCODE(k) && !IS_MODIFIER_KEYCODE(k) && k != KC_UP && k != KC_DOWN) {
+            // A second capital right after the first, typed with the other
+            // Shift as in OK, makes the word capitals, so kana follow it.
+            uint8_t m = get_mods() | get_oneshot_mods();
+            if (k >= KC_A && k <= KC_Z && (m & MOD_MASK_SHIFT) && eng_len == 1 && eng_pos == 1) eng_word = false;
             eng_pos++;
             eng_len++;
         }
