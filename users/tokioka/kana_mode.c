@@ -31,6 +31,10 @@ static bool on_kana_layer(void) { return get_highest_layer(layer_state | default
 // kana within the same word. Sent when not needed, it does nothing.
 static bool ime_eng;
 
+// Capitals just typed, as in IS or OK, with no other key since. A capital
+// typed with the other Shift then goes on with them, not as a word like Tokyo.
+static bool caps_run;
+
 static void ime_back_to_kana(void) {
     if (!ime_eng || !ime_on) return;
     // Sent without the Shift held for ( and ), so the IME sees the plain key.
@@ -48,6 +52,7 @@ static void ime_back_to_kana(void) {
 }
 
 void ng_send_romaji(const char *romaji) {
+    caps_run = false;
     ime_back_to_kana();
     send_string(romaji);
 }
@@ -156,8 +161,8 @@ static uint16_t vm_time;
 // One letter typed in that Shift and the key let go: the word goes on in
 // English, as in Tokyo, the keys passing as they are until Enter, Esc, an IME
 // key (hj, fg), Tab or a shortcut, or until the cursor is left of the capital.
-// Two or more letters, as in USB, go back to kana at once, and so does a
-// second capital typed with the other Shift, as in OK.
+// Two or more letters, as in USB, go back to kana at once, and so do
+// capitals typed across both Shifts, as in OK or IS and then T.
 static uint8_t vm_word_letters;
 static bool    eng_word;
 static int16_t eng_len, eng_pos;
@@ -210,7 +215,8 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         if (pos >= 0 && pos == vm_word) {
             vm_word  = -1;
             if (vm_word_letters) ime_eng = true;
-            eng_word = vm_word_letters == 1;
+            eng_word = vm_word_letters == 1 && !caps_run;
+            caps_run = vm_word_letters > 0 && !eng_word;
             eng_len  = 1;
             eng_pos  = 1;
         }
@@ -339,6 +345,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         case KC_LNG2:
             if (pressed) {
                 eng_word   = false;
+                caps_run   = false;
                 ime_eng    = false;
                 ime_resync = false;
                 ng_flush(time);
@@ -395,7 +402,10 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             // A second capital right after the first, typed with the other
             // Shift as in OK, makes the word capitals, so kana follow it.
             uint8_t m = get_mods() | get_oneshot_mods();
-            if (k >= KC_A && k <= KC_Z && (m & MOD_MASK_SHIFT) && eng_len == 1 && eng_pos == 1) eng_word = false;
+            if (k >= KC_A && k <= KC_Z && (m & MOD_MASK_SHIFT) && eng_len == 1 && eng_pos == 1) {
+                eng_word = false;
+                caps_run = true;
+            }
             eng_pos++;
             eng_len++;
         }
@@ -501,6 +511,9 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             send_string(s);
         }
     }
+    // A key sent as it is without Shift ends the capitals. V and M do not,
+    // as they may be the next Shift.
+    if (pressed && !is_vm(pos) && !((get_mods() | get_oneshot_mods()) & MOD_MASK_SHIFT)) caps_run = false;
     if (pos >= 0 && pressed) passed[pos] = true;
     return true;
 }
