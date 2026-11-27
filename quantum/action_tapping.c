@@ -124,6 +124,27 @@ static void waiting_buffer_scan_tap(void);
 static void debug_tapping_key(void);
 static void debug_waiting_buffer(void);
 
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+/* A key typed inside a tap-hold key under permissive hold makes it a hold
+ * only if the tap-hold key is still held this long after the key is let go,
+ * so a roll whose tap-hold key is let go last stays a tap. The tapping key
+ * is told apart by its press time. */
+static bool     permissive_wait = false;
+static uint16_t permissive_wait_press_time;
+static uint16_t permissive_wait_release_time;
+static keypos_t permissive_wait_released_key;
+
+__attribute__((weak)) uint16_t get_permissive_hold_delay(uint16_t keycode, keyrecord_t *record) {
+    return 0;
+}
+
+static bool permissive_waiting(void) {
+    return permissive_wait && tapping_key.event.pressed && tapping_key.tap.count == 0 && tapping_key.event.time == permissive_wait_press_time;
+}
+
+static void settle_permissive_hold(keypos_t released_key);
+#    endif
+
 /** \brief Action Tapping Process
  *
  * FIXME: Needs doc
@@ -253,6 +274,9 @@ bool process_tapping(keyrecord_t *keyp) {
 #    endif // defined(FLOW_TAP_TERM)
 
             ac_dprintf("Tapping: Start(Press tap key).\n");
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+            permissive_wait = false;
+#    endif
             tapping_key = *keyp;
             process_record_tap_hint(&tapping_key);
             waiting_buffer_scan_tap();
@@ -266,7 +290,7 @@ bool process_tapping(keyrecord_t *keyp) {
         return true;
     }
 
-#    if (defined(AUTO_SHIFT_ENABLE) && defined(RETRO_SHIFT)) || defined(PERMISSIVE_HOLD_PER_KEY) || defined(CHORDAL_HOLD) || defined(HOLD_ON_OTHER_KEY_PRESS_PER_KEY)
+#    if (defined(AUTO_SHIFT_ENABLE) && defined(RETRO_SHIFT)) || defined(PERMISSIVE_HOLD_PER_KEY) || defined(CHORDAL_HOLD) || defined(HOLD_ON_OTHER_KEY_PRESS_PER_KEY) || defined(PERMISSIVE_HOLD_DELAY_PER_KEY)
     TAP_DEFINE_KEYCODE;
 #    endif
 
@@ -274,6 +298,12 @@ bool process_tapping(keyrecord_t *keyp) {
     if (tapping_key.event.pressed) {
         if (WITHIN_TAPPING_TERM(event) || MAYBE_RETRO_SHIFTING(event, keyp)) {
             if (IS_NOEVENT(event)) {
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+                if (permissive_waiting() && TIMER_DIFF_16(event.time, permissive_wait_release_time) >= get_permissive_hold_delay(tapping_keycode, &tapping_key)) {
+                    ac_dprintf("Tapping: End. No tap. Held past the permissive hold delay\n");
+                    settle_permissive_hold(permissive_wait_released_key);
+                }
+#    endif
                 // early return for tick events
                 return true;
             }
@@ -282,6 +312,9 @@ bool process_tapping(keyrecord_t *keyp) {
                 if (IS_TAPPING_RECORD(keyp) && !event.pressed) {
                     // first tap!
                     ac_dprintf("Tapping: First tap(0->1).\n");
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+                    permissive_wait = false;
+#    endif
                     tapping_key.tap.count = 1;
                     debug_tapping_key();
                     process_record(&tapping_key);
@@ -346,10 +379,27 @@ bool process_tapping(keyrecord_t *keyp) {
                     )
                 ) {
                     // clang-format on
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+                    if (TAP_GET_PERMISSIVE_HOLD && get_permissive_hold_delay(tapping_keycode, &tapping_key) > 0) {
+                        // Wait for the tap-hold key to be let go or held on.
+                        if (!permissive_waiting()) {
+                            ac_dprintf("Tapping: Typing key inside, waiting for the permissive hold delay\n");
+                            permissive_wait               = true;
+                            permissive_wait_press_time    = tapping_key.event.time;
+                            permissive_wait_release_time  = event.time;
+                            permissive_wait_released_key  = event.key;
+                        }
+                        // enqueue
+                        return false;
+                    }
+#    endif
                     ac_dprintf("Tapping: End. No tap. Interfered by typing key\n");
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+                    settle_permissive_hold(event.key);
+#    else
                     process_record(&tapping_key);
 
-#    if defined(CHORDAL_HOLD)
+#        if defined(CHORDAL_HOLD)
                     uint8_t first_tap = waiting_buffer_find_chordal_hold_tap();
                     ac_dprintf("first_tap = %u\n", first_tap);
                     if (first_tap < WAITING_BUFFER_SIZE) {
@@ -362,10 +412,11 @@ bool process_tapping(keyrecord_t *keyp) {
                     waiting_buffer_chordal_hold_taps_until(event.key);
                     debug_registered_taps();
                     debug_waiting_buffer();
-#    endif // CHORDAL_HOLD
+#        endif // CHORDAL_HOLD
 
                     tapping_key = (keyrecord_t){0};
                     debug_tapping_key();
+#    endif
                     // enqueue
                     return false;
                 }
@@ -747,6 +798,33 @@ static void debug_registered_taps(void) {
 }
 
 #    endif // defined(CHORDAL_HOLD) || defined(FLOW_TAP_TERM)
+
+#    ifdef PERMISSIVE_HOLD_DELAY_PER_KEY
+/* Settle the tapping key as held for a key typed inside it, as permissive
+ * hold does. */
+static void settle_permissive_hold(keypos_t released_key) {
+    permissive_wait = false;
+    process_record(&tapping_key);
+
+#        if defined(CHORDAL_HOLD)
+    uint8_t first_tap = waiting_buffer_find_chordal_hold_tap();
+    ac_dprintf("first_tap = %u\n", first_tap);
+    if (first_tap < WAITING_BUFFER_SIZE) {
+        for (; waiting_buffer_tail != first_tap; waiting_buffer_tail = (waiting_buffer_tail + 1) % WAITING_BUFFER_SIZE) {
+            ac_dprintf("Processing [%u]\n", waiting_buffer_tail);
+            process_record(&waiting_buffer[waiting_buffer_tail]);
+        }
+    }
+
+    waiting_buffer_chordal_hold_taps_until(released_key);
+    debug_registered_taps();
+    debug_waiting_buffer();
+#        endif // CHORDAL_HOLD
+
+    tapping_key = (keyrecord_t){0};
+    debug_tapping_key();
+}
+#    endif // PERMISSIVE_HOLD_DELAY_PER_KEY
 
 #    ifdef CHORDAL_HOLD
 __attribute__((weak)) bool get_chordal_hold(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, uint16_t other_keycode, keyrecord_t *other_record) {
