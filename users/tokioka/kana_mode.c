@@ -323,6 +323,8 @@ static void ime_resync_track(uint16_t keycode, keyrecord_t *record) {
     }
     if (!ime_resync || (m & MOD_MASK_CTRL) || resync_skips(k)) return;
     ime_resync = false;
+    // The IME key sent below ends English as well.
+    ime_eng = false;
     // Typed without the Shift held for a capital, so the IME sees the plain key.
     uint8_t mods = get_mods();
     if (mods) {
@@ -557,7 +559,23 @@ uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
 // other key leaves it to permissive hold, so Ctrl and the like work without
 // waiting out the tapping term. In an English word the keys are letters, so
 // V or M held with t, as in YouTube, is Shift by permissive hold too.
+// While typing kana in on-choku, an Alt tap-hold key, as on m, and a key that
+// types romaji or a vowel chord pressed during it are settled as a tap at
+// once, so m before a vowel let go first is not Alt and the vowel. Alt with a
+// letter then needs the key held for the tapping term first. Other keys, such
+// as Tab and the thumb keys, are left to permissive hold as before.
+static bool onchoku_typing(void) {
+    return ime_on && !cfg.naginata && !ime_eng && on_kana_layer() && !(get_mods() | get_oneshot_mods());
+}
+
+static bool is_alt_tap_hold(uint16_t keycode) {
+    if (!IS_QK_MOD_TAP(keycode)) return false;
+    uint8_t m = mod_tap_mods(keycode);
+    return m && !(m & ~MOD_MASK_ALT);
+}
+
 int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, uint16_t other_keycode, keyrecord_t *other_record) {
+    if (onchoku_typing() && is_alt_tap_hold(tap_hold_keycode) && ng_pos(tap_hold_record->event.key) >= 0 && (IS_COMBOEVENT(other_record->event) || ng_pos(other_record->event.key) >= 0)) return 0;
     if (eng_word || !(naginata_on() && on_kana_layer()) || (get_mods() | get_oneshot_mods())) return -1;
     int8_t a = ng_pos(tap_hold_record->event.key), b = ng_pos(other_record->event.key);
     if (a < 0 || b < 0 || !ng_can_chord(a, b)) return -1;
@@ -572,6 +590,8 @@ bool kana_mode_combo_allowed(combo_class_t c) {
             return eng_word || !(naginata_on() && on_kana_layer());
         case COMBO_ONCHOKU:
         default:
-            return ime_on && !cfg.naginata;
+            // Off while the IME is in English after a letter typed with
+            // Shift, or while Shift is on, so the vowels there are letters.
+            return ime_on && !cfg.naginata && !ime_eng && !((get_mods() | get_oneshot_mods()) & MOD_MASK_SHIFT);
     }
 }
