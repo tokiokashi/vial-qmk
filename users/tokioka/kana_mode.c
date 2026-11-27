@@ -559,27 +559,20 @@ uint16_t keymap_key_to_keycode(uint8_t layer, keypos_t key) {
 // other key leaves it to permissive hold, so Ctrl and the like work without
 // waiting out the tapping term. In an English word the keys are letters, so
 // V or M held with t, as in YouTube, is Shift by permissive hold too.
-// While typing kana in on-choku, an Alt tap-hold key, as on m, and a key that
-// types romaji or a vowel chord pressed during it are settled as a tap at
-// once, so m before a vowel let go first is not Alt and the vowel. Alt with a
-// letter then needs the key held for the tapping term first. Other keys, such
-// as Tab and the thumb keys, are left to permissive hold as before.
-static bool onchoku_typing(void) {
-    return ime_on && !cfg.naginata && !ime_eng && on_kana_layer() && !(get_mods() | get_oneshot_mods());
-}
-
-static bool is_alt_tap_hold(uint16_t keycode) {
-    if (!IS_QK_MOD_TAP(keycode)) return false;
-    uint8_t m = mod_tap_mods(keycode);
-    return m && !(m & ~MOD_MASK_ALT);
-}
-
 int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_record, uint16_t other_keycode, keyrecord_t *other_record) {
-    if (onchoku_typing() && is_alt_tap_hold(tap_hold_keycode) && ng_pos(tap_hold_record->event.key) >= 0 && (IS_COMBOEVENT(other_record->event) || ng_pos(other_record->event.key) >= 0)) return 0;
     if (eng_word || !(naginata_on() && on_kana_layer()) || (get_mods() | get_oneshot_mods())) return -1;
     int8_t a = ng_pos(tap_hold_record->event.key), b = ng_pos(other_record->event.key);
     if (a < 0 || b < 0 || !ng_can_chord(a, b)) return -1;
     return 0;
+}
+
+// Outside f1898, as in on-choku and on the QWERTY layer, a mod-tap key with
+// a key typed inside it becomes its modifier only when still held
+// INNER_WAIT_MS after that key is let go, as with the inner-key rule above.
+// A roll whose mod-tap key is let go a moment later, as m before a vowel let
+// go first, stays a tap. Layer-tap keys keep plain permissive hold.
+uint16_t get_permissive_hold_delay(uint16_t keycode, keyrecord_t *record) {
+    return IS_QK_MOD_TAP(keycode) ? INNER_WAIT_MS : 0;
 }
 
 bool kana_mode_combo_allowed(combo_class_t c) {
