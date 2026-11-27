@@ -287,6 +287,49 @@ static inline void dump_key_buffer(void) {
     key_buffer_next = key_buffer_size = 0;
 }
 
+#ifdef COMBO_KEEP_PENDING_ON_RELEASE
+/* A key let go while a chord is pressed, such as the last consonant still
+ * held when a vowel chord starts, would otherwise send the keys of the chord
+ * on their own. When that key was pressed before every key still waiting,
+ * only its press is sent and the chord goes on; returns whether it did. */
+static bool release_before_pending_keys(keyrecord_t *record) {
+    if (key_buffer_size == 0) {
+        return false;
+    }
+    uint8_t i = 0;
+    for (; i < key_buffer_size; i++) {
+        if (KEYEQ(key_buffer[i].record.event.key, record->event.key)) {
+            break;
+        }
+    }
+    if (i < key_buffer_size) {
+        /* Its press is still waiting: send it only when it is the first. */
+        if (i != 0 || IS_NOEVENT(key_buffer[0].record.event)) {
+            return false;
+        }
+        queued_record_t first = key_buffer[0];
+        for (uint8_t j = 1; j < key_buffer_size; j++) {
+            key_buffer[j - 1] = key_buffer[j];
+        }
+        key_buffer_size--;
+#    ifndef NO_ACTION_TAPPING
+        action_tapping_process(first.record);
+#    else
+        process_record(&first.record);
+#    endif
+        clear_weak_mods();
+    }
+    /* Combos with none of the waiting keys down start afresh. */
+    for (uint16_t idx = 0; idx < combo_count(); ++idx) {
+        combo_t *combo = combo_get(idx);
+        if (!COMBO_ACTIVE(combo) && COMBO_STATE(combo) == 0) {
+            RESET_COMBO_STATE(combo);
+        }
+    }
+    return true;
+}
+#endif
+
 #define NO_COMBO_KEYS_ARE_DOWN (0 == COMBO_STATE(combo))
 #define ALL_COMBO_KEYS_ARE_DOWN(state, key_count) (((1 << key_count) - 1) == state)
 #define ONLY_ONE_KEY_IS_DOWN(state) !(state & (state - 1))
@@ -638,7 +681,13 @@ bool process_combo(uint16_t keycode, keyrecord_t *record) {
         if (combo_buffer_read != combo_buffer_write) {
             // some combo is prepared
             apply_combos();
-        } else {
+        }
+#ifdef COMBO_KEEP_PENDING_ON_RELEASE
+        else if (!record->event.pressed && release_before_pending_keys(record)) {
+            // the chord being pressed stays
+        }
+#endif
+        else {
             // reset state if there are no combo keys pressed at all
             dump_key_buffer();
 #ifndef COMBO_NO_TIMER

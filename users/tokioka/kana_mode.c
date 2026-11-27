@@ -323,6 +323,8 @@ static void ime_resync_track(uint16_t keycode, keyrecord_t *record) {
     }
     if (!ime_resync || (m & MOD_MASK_CTRL) || resync_skips(k)) return;
     ime_resync = false;
+    // The IME key sent below ends English as well.
+    ime_eng = false;
     // Typed without the Shift held for a capital, so the IME sees the plain key.
     uint8_t mods = get_mods();
     if (mods) {
@@ -564,6 +566,15 @@ int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_rec
     return 0;
 }
 
+// Outside f1898, as in on-choku and on the QWERTY layer, a mod-tap key with
+// a key typed inside it becomes its modifier only when still held
+// INNER_WAIT_MS after that key is let go, as with the inner-key rule above.
+// A roll whose mod-tap key is let go a moment later, as m before a vowel let
+// go first, stays a tap. Layer-tap keys keep plain permissive hold.
+uint16_t get_permissive_hold_delay(uint16_t keycode, keyrecord_t *record) {
+    return IS_QK_MOD_TAP(keycode) ? INNER_WAIT_MS : 0;
+}
+
 bool kana_mode_combo_allowed(combo_class_t c) {
     switch (c) {
         case COMBO_ALWAYS:
@@ -572,6 +583,8 @@ bool kana_mode_combo_allowed(combo_class_t c) {
             return eng_word || !(naginata_on() && on_kana_layer());
         case COMBO_ONCHOKU:
         default:
-            return ime_on && !cfg.naginata;
+            // Off while the IME is in English after a letter typed with
+            // Shift, or while Shift is on, so the vowels there are letters.
+            return ime_on && !cfg.naginata && !ime_eng && !((get_mods() | get_oneshot_mods()) & MOD_MASK_SHIFT);
     }
 }

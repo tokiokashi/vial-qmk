@@ -15,7 +15,7 @@ enum kana_keycodes {
 typedef enum {
     COMBO_ALWAYS,       // IME on/off, thumb macros, volume
     COMBO_NOT_NAGINATA, // overlaps kana keys, so off while typing f1898
-    COMBO_ONCHOKU,      // TK on-choku, on only while the IME is on in on-choku mode
+    COMBO_ONCHOKU,      // TK on-choku, on only while the IME is on in on-choku mode and not in English
 } combo_class_t;
 
 void kana_mode_init(void);
