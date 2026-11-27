@@ -566,13 +566,16 @@ int8_t qs_chordal_hold_user(uint16_t tap_hold_keycode, keyrecord_t *tap_hold_rec
     return 0;
 }
 
-// Outside f1898, as in on-choku and on the QWERTY layer, a mod-tap key with
-// a key typed inside it becomes its modifier only when still held
-// INNER_WAIT_MS after that key is let go, as with the inner-key rule above.
-// A roll whose mod-tap key is let go a moment later, as m before a vowel let
-// go first, stays a tap. Layer-tap keys keep plain permissive hold.
+// Outside f1898, a mod-tap key on the right of the bottom row with a key
+// typed inside it becomes its modifier only when still held INNER_WAIT_MS
+// after that key is let go, as with the inner-key rule above. In on-choku
+// these keys type consonants, and a roll whose mod-tap key is let go a
+// moment later, as m before a vowel let go first, stays a tap. The left of
+// the bottom row is used only for modifiers and chords there, so it and the
+// layer-tap keys keep plain permissive hold, and Ctrl+C needs no wait.
 uint16_t get_permissive_hold_delay(uint16_t keycode, keyrecord_t *record) {
-    return IS_QK_MOD_TAP(keycode) ? INNER_WAIT_MS : 0;
+    int8_t pos = ng_pos(record->event.key);
+    return IS_QK_MOD_TAP(keycode) && pos >= 25 && pos < NG_KEYS ? INNER_WAIT_MS : 0;
 }
 
 bool kana_mode_combo_allowed(combo_class_t c) {
