@@ -71,7 +71,8 @@ int main(){
   run("held same","+d +s -s -d","ltu ~ i ");
   run("fi","p +y +s -y -s","f ~ i ");
   run("dhi","p +m +; +s -m -; -s","d ~ h ~ i ");
-  run("je onchoku","p +. +a -. -a","j ~ e ");
+  run("je onchoku","p +x +a -x -a","j ~ e ");
+  run("ze is no gairaion","p +. +a -. -a","t ~ o ");
   run("pu group1","p +s -s","p ~ u ");
   run("P no match","p +h +j -h -j","p ~ i ~ nn ");
   run("Del cancel","d!w","k ~ o ");
