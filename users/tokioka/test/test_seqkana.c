@@ -78,6 +78,9 @@ int main(){
   run("fa on tick","p +y +d @60 | -y -d","f ~ a | ");
   run("fa waits","p +y +d @40 | -d -y","| f ~ a ");
   run("fa seq","pyd","f ~ a ");
+  run("kw then a","p +h +u -h -u d","k ~ w ~ a ");
+  run("kwa held","p +h +u +d -h -u -d","k ~ w ~ a ");
+  run("pi u slow","p +h @70 +u -h -u","p ~ i xyuu ");
   run("thi seq","pj;s","t ~ h ~ i ");
   run("zye seq","p. +s +a -s -a","z ~ y ~ e ");
   run("tsa seq hold","pj +l +d -l -d","t ~ s ~ a ");
