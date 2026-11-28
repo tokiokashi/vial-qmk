@@ -21,8 +21,6 @@
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
-// - , and . pressed within ng_mark_gap_ms give !, and . and / give ?, as in
-//   TK on-choku.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
 // - Del right after a prefix key drops the prefix.
@@ -31,9 +29,11 @@
 //   Keys left over by a short romaji, as あ typed with K and V, are added to
 //   the parts of the kana sent next.
 //
-// Keys are taken in the order they went down, and each one is decided when it
-// or a key pressed after it is released. A tap-hold key held as a modifier
-// is dropped from the queue by kana_mode.c before that.
+// Keys are taken in the order they went down. A key is decided as it goes
+// down, with the keys before it, unless it is a prefix key or a tap-hold key,
+// a tap-hold key is down or waiting, or P waits for a gairaion chord. Then
+// it is decided when it or a key pressed after it is released. A tap-hold
+// key held as a modifier is dropped from the queue by kana_mode.c before that.
 
 #include "naginata.h"
 #include "seqkana.h"
@@ -545,16 +545,6 @@ static void press_group(uint16_t time) {
 }
 
 
-// ! or ? for keys a and b that went down within ng_mark_gap_ms of each other.
-static const char *mark_of(uint8_t a, uint8_t b) {
-    uint16_t d = keys[a].t_down - keys[b].t_down;
-    if ((uint16_t)(keys[b].t_down - keys[a].t_down) < d) d = keys[b].t_down - keys[a].t_down;
-    if (d > ng_mark_gap_ms) return NULL;
-    if ((a == P_CM && b == P_DT) || (a == P_DT && b == P_CM)) return "!";
-    if ((a == P_DT && b == P_SL) || (a == P_SL && b == P_DT)) return "?";
-    return NULL;
-}
-
 // Keys a and b are consonants of a cluster, pressed within ng_mark_gap_ms.
 static bool cluster_pair(uint8_t a, uint8_t b) {
     char x = letter(a), y = letter(b);
@@ -580,22 +570,22 @@ static void run_queue(uint8_t pos) {
             if (a == pos || b == pos) return;
             continue;
         }
-        const char *mark = qlen >= 2 && prefix == PRE_NONE ? mark_of(queue[0], queue[1]) : NULL;
-        if (mark) {
-            uint8_t a = queue[0], b = queue[1];
-            queue_drop(0);
-            queue_drop(0);
-            bracket_prefix = 0;
-            strokes += 2;
-            send(mark, NULL);
-            if (a == pos || b == pos) return;
-            continue;
-        }
         uint8_t k = queue[0];
         queue_drop(0);
         step(k);
         if (k == pos) return;
     }
+}
+
+static bool chord_pending(void);
+
+// A tap-hold key is down or not decided yet, so keys after it may be typed
+// with its modifier.
+static bool tap_hold_pending(void) {
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if ((keys[p].down || keys[p].live) && ng_is_tap_hold(p)) return true;
+    }
+    return false;
 }
 
 void sq_press(uint8_t pos, uint16_t time) {
@@ -610,6 +600,10 @@ void sq_press(uint8_t pos, uint16_t time) {
     queue[qlen++]    = pos;
     sent_in_call     = false;
     press_group(time);
+    // A key that is no prefix and no tap-hold key is decided as it goes
+    // down, with the keys before it, unless a tap-hold key may make it a
+    // shortcut or P waits for a gairaion chord.
+    if (!grp && !is_prefix(pos) && !tap_hold_pending() && !chord_pending()) run_queue(pos);
 }
 
 void sq_tick(uint16_t time) {
@@ -675,7 +669,7 @@ bool sq_can_chord(uint8_t a, uint8_t b) { return a < NG_KEYS && b < NG_KEYS && a
 bool sq_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
     (void)time;
     if (a >= NG_KEYS || b >= NG_KEYS || !keys[a].live || !keys[b].live) return false;
-    return sq_can_chord(a, b) || mark_of(a, b);
+    return sq_can_chord(a, b);
 }
 
 bool sq_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }

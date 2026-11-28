@@ -13,6 +13,8 @@ void ng_send_romaji(const char *r){strcat(out,r);strcat(out," ");}
 void ng_ime(bool on){strcat(out,on?"[ON] ":"[OFF] ");}
 void ng_tap_esc(void){strcat(out,"[ESC] ");}
 void ng_wait_ms(uint16_t ms){(void)ms;strcat(out,"~ ");}
+// The bottom row tap-hold keys of the boards: Z, X, C, V, M, comma and full stop.
+bool ng_is_tap_hold(uint8_t p){return p==20||p==21||p==22||p==23||p==26||p==27||p==28;}
 static const char *K="qwertyuiopasdfghjkl;zxcvbnm,./";
 static int pos(char c){const char*p=strchr(K,c);return p?p-K:-1;}
 static int fails;
@@ -67,7 +69,7 @@ int main(){
   run("gyo","l/c","g ~ i xyo ");
   run("pyo","phc","p ~ i xyo ");
   run("roll ka-i","+f +s -f -s","ka i ");
-  run("roll rev rel","+f +s -s -f","ka ~ i ");
+  run("roll rev rel","+f +s -s -f","ka i ");
   run("held prefix","+d +j -j -d","s ~ a ");
   run("held same","+d +s -s -d","ltu ~ i ");
   run("fi","p +y +s -y -s","f ~ i ");
@@ -101,7 +103,7 @@ int main(){
   run("pi si fast","p +h @10 +i -h -i","p ~ i si ");
   run("dhi","p +m @10 +; @10 +s -m -; -s","d ~ h ~ i ");
   run("pitta roll","p +h +d +v -h -d -v","p ~ i ltu ~ ta ");
-  run("other key closes","p +y +d +h -y -d -h","f ~ a - ");
+  run("other key closes","p +y +d +h -y -d -h","f ~ a ~ - ");
   run("Del cancel","d!w","k ~ o ");
   run("Del carried","d!a","t ~ o ");
   run("Del no prefix","w!","ko [DEL] ");
@@ -109,8 +111,11 @@ int main(){
   run("arigatou","kvolfau","a r ~ i g ~ a to u ");
   run("gozaimasu","lwljsdm,","g ~ o z ~ a i m ~ a su ");
   run("touten","t",", ");
-  run("exclamation","+, @10 +. @40 -, -.","! ");
-  run("question","+. @10 +/ @40 -/ -.","? ");
+  run("on press","+f | -f","ka | ");
+  run("prefix on next press","+k +w | -k -w","m ~ i | ");
+  run("tap-hold on release","+v | -v","| ta ");
+  run("inside tap-hold","+v +f | -f -v","| ta ~ ka ");
+  run("after tap-hold","v +f | -f","ta ka | ");
   run("suru roll","+, @60 +. @40 -, -.","su ru ");
   run("suru apart","+, @40 -, @20 +. @40 -.","su ru ");
   run("ltu alone","dn","l ~ tu ");
