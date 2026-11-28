@@ -77,6 +77,13 @@ int main(){
   run("P no match","p +h +j -h -j","p ~ i nn ");
   run("fa on tick","p +y +d @60 | -y -d","f ~ a | ");
   run("fa waits","p +y +d @40 | -d -y","| f ~ a ");
+  run("fa seq","pyd","f ~ a ");
+  run("thi seq","pj;s","t ~ h ~ i ");
+  run("zye seq","p. +s +a -s -a","z ~ y ~ e ");
+  run("tsa seq hold","pj +l +d -l -d","t ~ s ~ a ");
+  run("pi then a","phf","p ~ i ka ");
+  run("cons then kana","pyw","k ~ o ");
+  run("cons then Del","py!w","k ~ o ");
   run("zye cons first","p +. +s -. +a -s -a","z ~ y ~ e ");
   run("fi cons first","p +y +s -y @60 | -s","f ~ i | ");
   run("zye","p +. +s +a -. -s -a","z ~ y ~ e ");
@@ -87,7 +94,7 @@ int main(){
   run("vowel first","p +d +y -d -y","p ~ a . ");
   run("consonant let go","p +h -h +f -f","p ~ i ka ");
   run("pi si slow","p +h @70 +i -h -i","p ~ i si ");
-  run("th no word","p +j @10 +; @60 -j -;","n ~ a ");
+  run("th no word","p +j @10 +; @60 -j -; s","t ~ h ~ i ");
   run("pi si fast","p +h @10 +i -h -i","p ~ i si ");
   run("dhi","p +m @10 +; @10 +s -m -; -s","d ~ h ~ i ");
   run("pitta roll","p +h +d +v -h -d -v","p ~ i ltu ~ ta ");
