@@ -7,8 +7,8 @@
         {"name": "NG_POST", "title": "Switch post-shift on/off in Naginata mode", "shortName": "PostSft"},
         {"name": "NG_ONCHOKU", "title": "Make hj go to TK on-choku", "shortName": "KanaTK"},
         {"name": "NG_NAGINATA", "title": "Make hj go to Naginata", "shortName": "KanaNG"},
-    {"name": "NG_SEQ_SW", "title": "Switch the layout hj goes to between Naginata and the sequential layout", "shortName": "KanaSQSW"},
-    {"name": "NG_SEQUENTIAL", "title": "Make hj go to the sequential layout", "shortName": "KanaSQ"}
+    {"name": "NG_TKY_SW", "title": "Switch the layout hj goes to between Naginata and Tsukuyomi", "shortName": "KanaTKYSW"},
+    {"name": "NG_TSUKUYOMI", "title": "Make hj go to Tsukuyomi", "shortName": "KanaTKY"}
     ],
     "matrix": {
         "rows": 4,

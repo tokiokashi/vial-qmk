@@ -1,5 +1,5 @@
-// Kana engine for the sequential layout (MF5-29). Each kana is one key, or a
-// prefix key and then a key:
+// Kana engine for Tsukuyomi (月夜見), a sequential layout. Each kana is one
+// key, or a prefix key and then a key:
 // - D or K and then a key of the other hand gives the kana on its back face.
 //   Followed by a key of the same hand, it gives っ and that key as usual.
 //   Pressed twice, it gives the back face of a key of the same hand, or っ

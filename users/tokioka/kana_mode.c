@@ -1,6 +1,6 @@
 // hj (KC_LNG1) turns the IME on and goes to the kana layout chosen by NG_SW:
-// TK on-choku or a layout of the engine in naginata.c, which is f1898 or the
-// sequential layout in seqkana.c by NG_SEQ_SW. fg (KC_LNG2) turns it off.
+// TK on-choku or a layout of the engine in naginata.c, which is f1898 or
+// Tsukuyomi in seqkana.c by NG_TKY_SW. fg (KC_LNG2) turns it off.
 // In f1898 mode the alpha keys of layer 0 are read by position, and a
 // tap-hold key on the bottom row still gives its modifier when held.
 
@@ -16,7 +16,7 @@ typedef union {
     struct {
         bool naginata : 1;
         bool prefix_only : 1;
-        bool sequential : 1; // the engine runs the sequential layout, not f1898
+        bool sequential : 1; // the engine runs Tsukuyomi, not f1898
     };
 } user_config_t;
 
@@ -202,7 +202,7 @@ static void vm_word_task(void) {
 static int8_t   lone_pos = -1;
 static uint16_t lone_time;
 
-// In the sequential layout these are the prefix keys D, K, L and P.
+// In Tsukuyomi these are the prefix keys D, K, L and P.
 static bool is_lone_shift(int8_t p) {
     if (cfg.sequential) return p == 9 || p == 12 || p == 17 || p == 18;
     return p == 3 || p == 6 || p == 12 || p == 13 || p == 16 || p == 17;
@@ -352,7 +352,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     uint16_t time    = record->event.time;
     bool     pressed = record->event.pressed;
 
-    // ! and ? of the sequential layout follow the combo term set in Vial.
+    // ! and ? of Tsukuyomi follow the combo term set in Vial.
 #ifdef QMK_SETTINGS
     ng_mark_gap_ms = QS.combo_term;
 #elif defined(COMBO_TERM)
@@ -374,8 +374,8 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         case NG_SW:
         case NG_ONCHOKU:
         case NG_NAGINATA:
-        case NG_SEQ_SW:
-        case NG_SEQUENTIAL:
+        case NG_TKY_SW:
+        case NG_TSUKUYOMI:
             if (pressed) {
                 ng_flush(time);
                 if (keycode == NG_SW) {
@@ -384,7 +384,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
                     cfg.naginata = false;
                 } else {
                     cfg.naginata   = true;
-                    cfg.sequential = keycode == NG_SEQ_SW ? !cfg.sequential : keycode == NG_SEQUENTIAL;
+                    cfg.sequential = keycode == NG_TKY_SW ? !cfg.sequential : keycode == NG_TSUKUYOMI;
                 }
                 ng_sequential = cfg.sequential;
                 eeconfig_update_user(cfg.raw);
@@ -480,7 +480,7 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         }
     }
 
-    // In the sequential layout, Del right after a prefix key drops the prefix
+    // In Tsukuyomi, Del right after a prefix key drops the prefix
     // and is not sent.
     static bool del_dropped;
     if (keycode == KC_DEL) {
