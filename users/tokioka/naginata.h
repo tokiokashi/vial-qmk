@@ -34,7 +34,8 @@ bool ng_pending(void);
 // Whether a and b are the pair for ? and went down close enough to be one.
 bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time);
 // The letter to put before [ or ] typed next, z after the toku key (the
-// middle-finger shift + T) and s after both shifts + Z, or 0; clears it. [ and ] come from outside the engine.
+// middle-finger shift + T, or D and then P in the sequential layout) and s
+// after both shifts + Z (L and then P), or 0; clears it. [ and ] come from outside the engine.
 char ng_take_bracket_prefix(void);
 // In the sequential layout, drop a prefix key typed last, for Del. Kana
 // waiting before it are sent first. Returns whether there was one.
@@ -44,7 +45,4 @@ bool ng_drop_prefix(uint16_t time);
 void ng_send_romaji(const char *romaji);
 void ng_ime(bool on);
 void ng_tap_esc(void);
-// The letter a to z that the key at pos types on layer 0, or 0. The
-// sequential layout spells gairaion by these.
-char ng_letter(uint8_t pos);
 void ng_wait_ms(uint16_t ms);

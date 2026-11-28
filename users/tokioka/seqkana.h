@@ -17,5 +17,6 @@ uint16_t sq_down_ms(uint8_t pos, uint16_t time);
 void     sq_cancel(uint8_t pos);
 void     sq_forget(uint8_t pos);
 bool     sq_drop_prefix(uint16_t time);
+char     sq_take_bracket_prefix(void);
 // Forget every key and count, as at power on. For the tests.
 void     sq_reset(void);
