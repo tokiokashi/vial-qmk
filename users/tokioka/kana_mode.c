@@ -233,7 +233,7 @@ static void vm_track(int8_t pos, bool pressed, uint16_t time) {
         return;
     }
     if (vm_word >= 0 && pos >= 0) vm_word_letters++;
-    bool alone = !eng_word && is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down();
+    bool alone = !eng_word && is_vm(pos) && naginata_on() && on_kana_layer() && !(get_mods() | get_oneshot_mods()) && !any_kana_key_down() && !ng_chord_pending();
     vm_hold    = alone ? pos : -1;
     vm_time    = time;
 }
@@ -282,6 +282,7 @@ static bool inner_to_mods(uint16_t time, int8_t cur) {
 
 void housekeeping_task_user(void) {
     vm_word_task();
+    if (naginata_on()) ng_tick(timer_read());
     if (inner_pos < 0 || timer_elapsed(inner_time) < INNER_WAIT_MS) return;
     if (!ng_down(inner_holder)) {
         int8_t p  = inner_pos;

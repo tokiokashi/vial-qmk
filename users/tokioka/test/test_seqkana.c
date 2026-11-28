@@ -1,8 +1,8 @@
 // PC test of the sequential layout engine. From users/tokioka:
 //   gcc -I. test/test_seqkana.c seqkana.c naginata.c -o /tmp/t && /tmp/t
 // Each line is "ok name keys => romaji sent". Keys are QWERTY positions:
-// a bare letter is a tap, +a and -a press and release, @N moves the clock N ms,
-// and ! is Del (it shows [DEL] when there was no prefix to drop). ~ is the
+// a bare letter is a tap, +a and -a press and release, @N moves the clock N ms
+// and ticks the engine, | shows in the output where it is, and ! is Del (it shows [DEL] when there was no prefix to drop). ~ is the
 // wait between the parts of a kana typed with more than one key.
 #include "naginata.h"
 #include "seqkana.h"
@@ -21,7 +21,8 @@ static void run(const char *name,const char *sc,const char *want){
   out[0]=0; uint16_t t=1000; sq_reset();
   for(const char*p=sc;*p;){
     if(*p==' '){p++;continue;}
-    if(*p=='@'){int n;sscanf(p+1,"%d",&n);t+=n;p++;while(*p>='0'&&*p<='9')p++;continue;}
+    if(*p=='@'){int n;sscanf(p+1,"%d",&n);t+=n;ng_tick(t);p++;while(*p>='0'&&*p<='9')p++;continue;}
+    if(*p=='|'){p++;strcat(out,"| ");continue;}
     if(*p=='!'){p++; if(!ng_drop_prefix(t)) strcat(out,"[DEL] "); continue;}
     if(*p=='+'||*p=='-'){char op=*p++, c=*p++; if(op=='+')ng_press(pos(c),t);else ng_release(pos(c),t); t+=10; continue;}
     ng_press(pos(*p),t); t+=30; ng_release(pos(*p),t); t+=30; p++;
@@ -74,7 +75,24 @@ int main(){
   run("je onchoku","p +x +a -x -a","j ~ e ");
   run("ze is no gairaion","p +. +a -. -a","t ~ o ");
   run("pu group1","p +s -s","p ~ u ");
-  run("P no match","p +h +j -h -j","p ~ i ~ nn ");
+  run("P no match","p +h +j -h -j","p ~ i nn ");
+  run("fa on tick","p +y +d @60 | -y -d","f ~ a | ");
+  run("fa waits","p +y +d @40 | -d -y","| f ~ a ");
+  run("zye","p +. +s +a -. -s -a","z ~ y ~ e ");
+  run("zyeku","p +. +s +d +f +z -. -s -d -f -z","z ~ y ~ e ~ k ~ u ");
+  run("fann","p +y +d +v -y -d -v","f ~ a ~ n ~ n ");
+  run("tyuu","p +j +s +e +f -j -s -e -f","t ~ y ~ u ~ u ");
+  run("dhi held P","+p +m +; +s -m -; -s -p","d ~ h ~ i ");
+  run("vowel first","p +d +y -d -y","p ~ a . ");
+  run("consonant let go","p +h -h +f -f","p ~ i ka ");
+  run("desu","p +m @10 +l -m -l","d ~ e ~ su ");
+  run("site on tick","p +l @10 +j @60 | -l -j","s ~ i ~ te | ");
+  run("siteha","p +l @10 +j @10 +; -l -j -;","s ~ i ~ t ~ eha ");
+  run("pi si slow","p +h @70 +i -h -i","p ~ i si ");
+  run("kara","p +h @10 +i -h -i","k ~ a ~ ra ");
+  run("dhi not deha","p +m @10 +; @10 +s -m -; -s","d ~ h ~ i ");
+  run("pitta roll","p +h +d +v -h -d -v","p ~ i ltu ~ ta ");
+  run("other key closes","p +y +d +h -y -d -h","f ~ a - ");
   run("Del cancel","d!w","k ~ o ");
   run("Del carried","d!a","t ~ o ");
   run("Del no prefix","w!","ko [DEL] ");

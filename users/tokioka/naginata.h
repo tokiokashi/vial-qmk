@@ -33,6 +33,10 @@ void ng_press(uint8_t pos, uint16_t time);
 void ng_release(uint8_t pos, uint16_t time);
 // Output every key still waiting, as if all keys were released now.
 void ng_flush(uint16_t time);
+// Time passing with no key event, for the sequential engine's gairaion chord.
+void ng_tick(uint16_t time);
+// A gairaion chord may be on its way, so a held key is a letter, not a modifier.
+bool ng_chord_pending(void);
 bool ng_pending(void);
 // Whether a and b are the pair for ? and went down close enough to be one.
 bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time);
