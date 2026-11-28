@@ -37,6 +37,8 @@ int main(){
   ng_sequential=true;
   ng_stroke_gap_ms=15;
   run("ko","w","ko ");
+  run("esc","q","[ESC] ");
+  run("esc after kana","wq","ko [ESC] ");
   run("D same hand","dw","ltu ~ ko ");
   run("mi K","kw","m ~ i ");
   run("ha","kd","h ~ a ");

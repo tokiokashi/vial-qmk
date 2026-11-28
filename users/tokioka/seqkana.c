@@ -26,6 +26,7 @@
 //   are ゅう and ょう. L before them gives the other one.
 // - R and T pressed within ng_mark_gap_ms give !, and Y and U give ?. Alone,
 //   they wait that long for the other one before their kana is sent.
+// - Q is Esc.
 // - Del right after a prefix key drops the prefix.
 // - A kana typed with n keys is sent as n parts of its romaji, ng_stroke_gap_ms
 //   apart, so a typing tester that counts signals 10 ms apart counts the keys.
@@ -49,7 +50,8 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// The faces in romaji. D, K, L and P are prefix keys and have no front face.
+// The faces in romaji. D, K, L and P are prefix keys and have no front face,
+// and Q is Esc.
 static const char *const front_face[NG_KEYS] = {
     NULL, "ko", "no", "ni", ",",  ".",  "u",  "si", "ri", NULL,
     "to", "i",  NULL, "ka", "o",  "-",  "nn", NULL, NULL, "na",
@@ -267,6 +269,13 @@ static void dispatch(uint8_t k) {
         case PRE_NONE:
             if (is_prefix(k)) {
                 prefix = k == P_D ? PRE_D : k == P_K ? PRE_K : k == P_L ? PRE_L : PRE_P;
+                return;
+            }
+            if (k == P_Q) {
+                // Q is Esc, which is no kana and counts no key.
+                ng_tap_esc();
+                strokes = 0;
+                last    = NULL;
                 return;
             }
             send_kana(front_face[k]);
