@@ -78,6 +78,8 @@ int main(){
   run("P no match","p +h +j -h -j","p ~ i nn ");
   run("fa on tick","p +y +d @60 | -y -d","f ~ a | ");
   run("fa waits","p +y +d @40 | -d -y","| f ~ a ");
+  run("zye cons first","p +. +s -. +a -s -a","z ~ y ~ e ");
+  run("fi cons first","p +y +s -y @60 | -s","f ~ i | ");
   run("zye","p +. +s +a -. -s -a","z ~ y ~ e ");
   run("zyeku","p +. +s +d +f +z -. -s -d -f -z","z ~ y ~ e ~ k ~ u ");
   run("fann","p +y +d +v -y -d -v","f ~ a ~ n ~ n ");

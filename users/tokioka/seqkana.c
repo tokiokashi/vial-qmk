@@ -599,7 +599,20 @@ void sq_release(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
     sent_in_call   = false;
-    if (grp) close_group(qlen);
+    if (grp) {
+        // A consonant key let go after the vowel leaves the gairaion open.
+        int8_t from = after_p(), i = queue_index(pos);
+        bool   held = from >= 0 && i >= from;
+        bool   vowel = false;
+        for (int8_t j = from; held && j < qlen; j++) {
+            if (!is_vowel(onchoku_letter[queue[j]])) continue;
+            vowel = true;
+            if (j <= i) held = false;
+            break;
+        }
+        if (held && vowel) return;
+        close_group(qlen);
+    }
     if (keys[pos].live) run_queue(pos);
 }
 
