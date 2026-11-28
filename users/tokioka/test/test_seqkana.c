@@ -71,7 +71,6 @@ int main(){
   run("held prefix","+d +j -j -d","s ~ a ");
   run("held same","+d +s -s -d","ltu ~ i ");
   run("fi","p +y +s -y -s","f ~ i ");
-  run("dhi","p +m +; +s -m -; -s","d ~ h ~ i ");
   run("je onchoku","p +x +a -x -a","j ~ e ");
   run("ze is no gairaion","p +. +a -. -a","t ~ o ");
   run("pu group1","p +s -s","p ~ u ");
@@ -87,12 +86,10 @@ int main(){
   run("dhi held P","+p +m +; +s -m -; -s -p","d ~ h ~ i ");
   run("vowel first","p +d +y -d -y","p ~ a . ");
   run("consonant let go","p +h -h +f -f","p ~ i ka ");
-  run("desu","p +m @10 +l -m -l","d ~ e ~ su ");
-  run("site on tick","p +l @10 +j @60 | -l -j","s ~ i ~ te | ");
-  run("siteha","p +l @10 +j @10 +; -l -j -;","s ~ i ~ t ~ eha ");
   run("pi si slow","p +h @70 +i -h -i","p ~ i si ");
-  run("kara","p +h @10 +i -h -i","k ~ a ~ ra ");
-  run("dhi not deha","p +m @10 +; @10 +s -m -; -s","d ~ h ~ i ");
+  run("th no word","p +j @10 +; @60 -j -;","n ~ a ");
+  run("pi si fast","p +h @10 +i -h -i","p ~ i si ");
+  run("dhi","p +m @10 +; @10 +s -m -; -s","d ~ h ~ i ");
   run("pitta roll","p +h +d +v -h -d -v","p ~ i ltu ~ ta ");
   run("other key closes","p +y +d +h -y -d -h","f ~ a - ");
   run("Del cancel","d!w","k ~ o ");

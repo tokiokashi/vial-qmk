@@ -9,11 +9,9 @@
 //   keys held and a vowel chord give the gairaion spelt by their letters in
 //   TK on-choku, as ふぁ for f and a. The vowel chord is any vowel chord of
 //   TK on-choku, so i and e give ye, as in じぇ, and i, a, o and x give yeku,
-//   as in じぇく. It is decided when one of its keys is released, a key
-//   outside it goes down, or ng_mark_gap_ms passes after its last key. A
+//   as in じぇく. It is decided when a key of the vowel chord is released, a
+//   key outside it goes down, or ng_mark_gap_ms passes after its last key. A
 //   romaji whose first kana is a plain one, such as ka, is no gairaion.
-//   Two or three consonant keys pressed within ng_mark_gap_ms after P give
-//   the word of the TK on-choku combo, as です for d and s.
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
@@ -429,9 +427,9 @@ static bool gairai_of(uint8_t from, uint8_t end, char *out) {
     return true;
 }
 
-// The chord after P is open from its first vowel until one of its keys is
-// released, a key outside it goes down, or ng_mark_gap_ms passes after its
-// last key.
+// The chord after P is open from its first vowel until a key of its vowel
+// chord is released, a key outside it goes down, or ng_mark_gap_ms passes
+// after its last key. Its consonant keys may be let go before that.
 static bool     grp;
 static uint16_t grp_since;
 
@@ -450,50 +448,14 @@ static int8_t after_p(void) {
 
 uint16_t ng_mark_gap_ms = 50;
 
-// The word chords of TK on-choku: their consonant keys by letter in any order,
-// and the romaji.
-static const char *const word_chords[][2] = {
-    {"ds", "desu"}, {"ms", "masu"},   {"st", "site"},     {"sr", "suru"},   {"kr", "kara"}, {"th", "toha"},
-    {"nd", "nado"}, {"dh", "deha"},   {"nh", "niha"},     {"sth", "siteha"}, {"mst", "masita"},
-    {"tn", "koto"}, {"dsn", "desita"}, {"dm", "mono"},    {"sk", "sika"},   {"tm", "tame"}, {"stn", "sita"},
-};
-
-// The word typed by the consonant keys queue[from] to queue[end - 1], all
-// pressed within ng_mark_gap_ms of the first, as a combo of TK on-choku.
-static const char *word_of(uint8_t from, uint8_t end) {
-    char    w[4];
-    uint8_t n = 0;
-    if (end - from < 2 || end - from > 3) return NULL;
-    for (uint8_t i = from; i < end; i++) {
-        uint8_t p = queue[i];
-        if (!letter(p) || is_vowel(letter(p))) return NULL;
-        if ((uint16_t)(keys[p].t_down - keys[queue[from]].t_down) > ng_mark_gap_ms) return NULL;
-        w[n++] = letter(p);
-    }
-    w[n] = 0;
-    sort_chars(w);
-    for (size_t i = 0; i < sizeof(word_chords) / sizeof(word_chords[0]); i++) {
-        char k[4];
-        strcpy(k, word_chords[i][0]);
-        sort_chars(k);
-        if (!strcmp(k, w)) return word_chords[i][1];
-    }
-    return NULL;
-}
-
 // Close the chord over the keys before queue index end: send the gairaion
 // they spell, or leave them to be decided one by one.
 static void close_group(uint8_t end) {
     grp         = false;
     int8_t from = after_p();
     if (from < 0 || from >= end) return;
-    char        r[12];
-    const char *w = word_of((uint8_t)from, end);
-    if (w) {
-        strcpy(r, w);
-    } else if (!gairai_of((uint8_t)from, end, r)) {
-        return;
-    }
+    char r[12];
+    if (!gairai_of((uint8_t)from, end, r)) return;
     if (prefix != PRE_P) {
         // Send the keys before P and take P as the prefix.
         uint8_t before = qlen;
@@ -510,34 +472,26 @@ static void close_group(uint8_t end) {
     send(r, NULL);
 }
 
-static uint8_t group_len(void) {
-    int8_t from = after_p();
-    return from < 0 ? 0 : qlen - (uint8_t)from;
-}
-
-// The key at the end of the queue went down: open the chord after P when it
-// is a vowel after held consonant keys or a second consonant key held with
-// the first, or close the chord when the key is no part of it.
+// The key at the end of the queue went down: open the chord when it is a
+// vowel after P and held consonant keys, or close it when the key is no part
+// of it.
 static void press_group(uint16_t time) {
     uint8_t p = queue[qlen - 1];
     if (grp) {
-        bool vowel = false;
-        for (int8_t i = after_p(); i >= 0 && i < qlen - 1; i++) vowel |= is_vowel(onchoku_letter[queue[i]]);
-        if (in_vowel_chord(p) || (!vowel && letter(p) && group_len() <= 3)) {
+        if (in_vowel_chord(p)) {
             grp_since = time;
         } else {
             close_group(qlen - 1);
         }
         return;
     }
+    if (!is_vowel(onchoku_letter[p])) return;
     int8_t from = after_p();
-    if (from < 0) return;
-    uint8_t nc = qlen - 1 - (uint8_t)from;
+    if (from < 0 || qlen - 1 - from < 1 || qlen - 1 - from > 2) return;
     for (uint8_t i = (uint8_t)from; i < qlen - 1; i++) {
         char c = letter(queue[i]);
         if (!c || is_vowel(c) || !keys[queue[i]].down) return;
     }
-    if (is_vowel(onchoku_letter[p]) ? nc < 1 || nc > 2 : nc != 1 || !letter(p)) return;
     grp       = true;
     grp_since = time;
 }
