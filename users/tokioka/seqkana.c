@@ -12,6 +12,10 @@
 //   as in じぇく. It is decided when a key of the vowel chord is released, a
 //   key outside it goes down, or ng_mark_gap_ms passes after its last key. A
 //   romaji whose first kana is a plain one, such as ka, is no gairaion.
+//   The consonant keys may also be typed one by one before the vowel chord,
+//   as P, J, ; and S for てぃ. H gives ぴ, so a gairaion of k is not typed so.
+//   Consonants and then a key that spells no gairaion give nothing, and the
+//   key is taken as usual.
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
@@ -86,6 +90,14 @@ static const char *const clusters[][2] = {
 
 // Gairaion with no y before the vowel. Any one consonant, y and a vowel, as
 // zye for じぇ, is one too.
+static bool is_cluster(char a, char b) {
+    char k[3] = {a < b ? a : b, a < b ? b : a, 0};
+    for (size_t i = 0; i < sizeof(clusters) / sizeof(clusters[0]); i++) {
+        if (!strcmp(clusters[i][0], k)) return true;
+    }
+    return false;
+}
+
 static const char *const gairai[] = {
     "fa",  "fi",  "fe",  "fo",  "va",  "vi",  "vu",  "ve",  "vo",  "thi", "thu", "dhi", "dhu",
     "twu", "dwu", "wi",  "we",  "who", "tsa", "tsi", "tse", "tso", "che", "she", "je",  "ja",
@@ -95,7 +107,11 @@ static const char *const gairai[] = {
 // The kana of the i row, after which や, ゆ, よ, う and お change.
 static const char *const i_row[] = {"ki", "si", "ti", "ni", "hi", "mi", "ri", "gi", "zi", "di", "bi", "pi"};
 
-typedef enum { PRE_NONE, PRE_D, PRE_K, PRE_DD, PRE_KK, PRE_L, PRE_P, PRE_TOKU } prefix_t;
+typedef enum { PRE_NONE, PRE_D, PRE_K, PRE_DD, PRE_KK, PRE_L, PRE_P, PRE_PC, PRE_TOKU } prefix_t;
+
+// The consonants typed one by one after P, while prefix is PRE_PC.
+static char    pcons[3];
+static uint8_t npcons;
 
 // The letter to put before [ or ] typed next: z after the toku key, s after
 // L and then P, or 0.
@@ -321,7 +337,31 @@ static void dispatch(uint8_t k) {
         case PRE_P: {
             const char *f = front_face[k], *b = back_face[k];
             const char *h = half_voiced(f) ? f : half_voiced(b) ? b : NULL;
-            if (h) send(half_voiced(h), half_voiced(h));
+            char        c = letter(k);
+            if (h) {
+                send(half_voiced(h), half_voiced(h));
+            } else if (c && !is_vowel(c)) {
+                // A consonant of a gairaion typed one key at a time.
+                pcons[0] = c;
+                npcons   = 1;
+                prefix   = PRE_PC;
+            }
+            return;
+        }
+        case PRE_PC: {
+            char c = letter(k);
+            if (npcons == 1 && c && !is_vowel(c) && is_cluster(pcons[0], c)) {
+                pcons[npcons++] = c;
+                prefix          = PRE_PC;
+                return;
+            }
+            // No gairaion: P and the consonants give nothing, and k is taken
+            // as usual.
+            npcons = 0;
+            strokes--;
+            drop_strokes(0);
+            strokes = 1;
+            dispatch(k);
             return;
         }
     }
@@ -385,12 +425,16 @@ static bool in_vowel_chord(uint8_t p) {
     return c && strchr("aiueo-,xjcvl", c);
 }
 
-// The gairaion spelt by queue[from] to queue[end - 1], one or two consonant
-// keys and then a vowel chord, written to out. False when they spell none,
+// The gairaion spelt by the consonants typed after P and queue[from] to
+// queue[end - 1], one or two consonants in all and then a vowel chord, written to out. False when they spell none,
 // or a plain kana such as ka.
 static bool gairai_of(uint8_t from, uint8_t end, char *out) {
     char    cons[3], vow[8];
     uint8_t nc = 0, nv = 0;
+    if (prefix == PRE_PC) {
+        memcpy(cons, pcons, npcons);
+        nc = npcons;
+    }
     for (uint8_t i = from; i < end; i++) {
         uint8_t p = queue[i];
         if (!nv && !is_vowel(onchoku_letter[p])) {
@@ -437,7 +481,7 @@ static uint16_t grp_since;
 // prefix before them. P waiting in the queue counts when nothing before it
 // is a prefix that would change it.
 static int8_t after_p(void) {
-    if (prefix == PRE_P) return 0;
+    if (prefix == PRE_P || prefix == PRE_PC) return 0;
     int8_t ip = queue_index(P_P);
     if (ip < 0 || prefix != PRE_NONE) return -1;
     for (int8_t i = 0; i < ip; i++) {
@@ -456,7 +500,7 @@ static void close_group(uint8_t end) {
     if (from < 0 || from >= end) return;
     char r[12];
     if (!gairai_of((uint8_t)from, end, r)) return;
-    if (prefix != PRE_P) {
+    if (prefix != PRE_P && prefix != PRE_PC) {
         // Send the keys before P and take P as the prefix.
         uint8_t before = qlen;
         run_queue(P_P);
@@ -469,6 +513,7 @@ static void close_group(uint8_t end) {
         strokes++;
     }
     prefix = PRE_NONE;
+    npcons = 0;
     send(r, NULL);
 }
 
@@ -487,7 +532,8 @@ static void press_group(uint16_t time) {
     }
     if (!is_vowel(onchoku_letter[p])) return;
     int8_t from = after_p();
-    if (from < 0 || qlen - 1 - from < 1 || qlen - 1 - from > 2) return;
+    uint8_t nc = qlen - 1 - (uint8_t)from + (prefix == PRE_PC ? npcons : 0);
+    if (from < 0 || nc < 1 || nc > 2) return;
     for (uint8_t i = (uint8_t)from; i < qlen - 1; i++) {
         char c = letter(queue[i]);
         if (!c || is_vowel(c) || !keys[queue[i]].down) return;
@@ -596,7 +642,7 @@ bool sq_drop_prefix(uint16_t time) {
 bool sq_pending(void) { return qlen || prefix != PRE_NONE || last; }
 
 // A gairaion may be on its way: P is decided, or waits in the queue.
-static bool chord_pending(void) { return prefix == PRE_P || queue_index(P_P) >= 0; }
+static bool chord_pending(void) { return prefix == PRE_P || prefix == PRE_PC || queue_index(P_P) >= 0; }
 
 bool sq_chord_pending(void) { return chord_pending(); }
 
