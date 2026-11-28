@@ -124,7 +124,9 @@ int main(){
   run("suru roll","+, @60 +. @40 -, -.","su ru ");
   run("suru apart","+, @40 -, @20 +. @40 -.","su ru ");
   run("ltu alone","dn","l ~ tu ");
-  run("nakaguro","dy","/ ");
+  run("nakaguro","kb","/ ");
+  run("exclamation","kt","! ");
+  run("question","dy","? ");
   run("ltu maru","ky","ltu ~ . ");
   run("toku arrow","dph","x ~ k ");
   run("toku arrow K","dpk","x ~ n ");

@@ -20,7 +20,8 @@
 //   key is taken as usual.
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
-//   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
+//   [ and ] s[ and s]. The back faces of T, Y and B are !, ? and ・, and D
+//   and then N gives っ alone.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
 // - R and T pressed within ng_mark_gap_ms give !, and Y and U give ?. Alone,
@@ -55,9 +56,9 @@ static const char *const front_face[NG_KEYS] = {
     "ya", "ku", "yo", "ta", "yu", "tu", "te", "su", "ru", "ki",
 };
 static const char *const back_face[NG_KEYS] = {
-    NULL, "mi", "se", "ho", NULL, "/",  "wa", "ro", "ti", NULL,
+    NULL, "mi", "se", "ho", "!",  "?",  "wa", "ro", "ti", NULL,
     "mu", "hu", "ha", "mo", "he", "hi", "sa", "ke", "ra", "so",
-    "nu", "e",  "re", "a",  NULL, "ltu", "ma", "wo", "me", "ne",
+    "nu", "e",  "re", "a",  "/",  "ltu", "ma", "wo", "me", "ne",
 };
 
 typedef struct {
