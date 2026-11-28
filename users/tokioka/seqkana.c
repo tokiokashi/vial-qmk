@@ -10,6 +10,7 @@
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
+// - , and . pressed together give !, and . and / give ?, as in TK on-choku.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
 // - Del right after a prefix key drops the prefix.
@@ -362,12 +363,33 @@ static void resolve_group(void) {
     }
 }
 
+// ! or ? for keys a and b that went down within ng_yoon_gap_ms of each other.
+static const char *mark_of(uint8_t a, uint8_t b) {
+    uint16_t d = keys[a].t_down - keys[b].t_down;
+    if ((uint16_t)(keys[b].t_down - keys[a].t_down) < d) d = keys[b].t_down - keys[a].t_down;
+    if (d > ng_yoon_gap_ms) return NULL;
+    if ((a == P_CM && b == P_DT) || (a == P_DT && b == P_CM)) return "!";
+    if ((a == P_DT && b == P_SL) || (a == P_SL && b == P_DT)) return "?";
+    return NULL;
+}
+
 // Decide the queue up to and including pos, or all of it when pos is NG_KEYS.
 static void run_queue(uint8_t pos) {
     while (qlen) {
         if (prefix == PRE_P) {
             resolve_group();
             return;
+        }
+        const char *mark = qlen >= 2 && prefix == PRE_NONE ? mark_of(queue[0], queue[1]) : NULL;
+        if (mark) {
+            uint8_t a = queue[0], b = queue[1];
+            queue_drop(0);
+            queue_drop(0);
+            bracket_prefix = 0;
+            strokes += 2;
+            send(mark, NULL);
+            if (a == pos || b == pos) return;
+            continue;
         }
         uint8_t k = queue[0];
         queue_drop(0);
@@ -426,7 +448,8 @@ bool sq_can_chord(uint8_t a, uint8_t b) { return a < NG_KEYS && b < NG_KEYS && a
 
 bool sq_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
     (void)time;
-    return sq_can_chord(a, b) && keys[a].live && keys[b].live;
+    if (a >= NG_KEYS || b >= NG_KEYS || !keys[a].live || !keys[b].live) return false;
+    return sq_can_chord(a, b) || mark_of(a, b);
 }
 
 bool sq_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }

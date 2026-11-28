@@ -81,6 +81,10 @@ int main(){
   run("arigatou","kvolfau","a r ~ i g ~ a to u ");
   run("gozaimasu","lwljsdm,","g ~ o z ~ a i m ~ a su ");
   run("touten","t",", ");
+  run("exclamation","+, @10 +. @40 -, -.","! ");
+  run("question","+. @10 +/ @40 -/ -.","? ");
+  run("suru roll","+, @60 +. @40 -, -.","su ru ");
+  run("suru apart","+, @40 -, @20 +. @40 -.","su ru ");
   run("ltu alone","dn","l ~ tu ");
   run("nakaguro","dy","/ ");
   run("ltu maru","ky","ltu ~ . ");
