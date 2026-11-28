@@ -650,6 +650,12 @@ static bool in_gairai(const gairai_t *g, uint8_t p) {
     return g->marker == MK_DAKU && is_daku(p);
 }
 
+void ng_tick(uint16_t time) {
+    if (ng_sequential) sq_tick(time);
+}
+
+bool ng_chord_pending(void) { return ng_sequential && sq_chord_pending(); }
+
 bool ng_can_chord(uint8_t a, uint8_t b) {
     if (ng_sequential) return sq_can_chord(a, b);
 

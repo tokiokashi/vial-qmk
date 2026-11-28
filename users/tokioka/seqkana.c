@@ -5,8 +5,13 @@
 //   Pressed twice, it gives the back face of a key of the same hand, or っ
 //   and the back face of a key of the other hand.
 // - L and then a key gives the dakuten of whichever kana on the key can take one.
-// - P and then a key gives the half dakuten. P and then keys pressed together
-//   give the gairaion spelt by the letters of those keys in TK on-choku.
+// - P and then a key gives the half dakuten. P and then one or two consonant
+//   keys held and a vowel chord give the gairaion spelt by their letters in
+//   TK on-choku, as ふぁ for f and a. The vowel chord is any vowel chord of
+//   TK on-choku, so i and e give ye, as in じぇ, and i, a, o and x give yeku,
+//   as in じぇく. It is decided when a key of the vowel chord is released, a
+//   key outside it goes down, or ng_mark_gap_ms passes after its last key. A
+//   romaji whose first kana is a plain one, such as ka, is no gairaion.
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
@@ -70,12 +75,21 @@ static char letter(uint8_t p) {
     return c >= 'a' && c <= 'z' ? c : 0;
 }
 
-// Gairaion after P, by the letters of the keys pressed together.
+static bool is_vowel(char c) { return c == 'a' || c == 'i' || c == 'u' || c == 'e' || c == 'o'; }
+
+// Consonants of two letters, as the IME spells them, by their letters in
+// alphabetical order.
+static const char *const clusters[][2] = {
+    {"ht", "th"}, {"dh", "dh"}, {"st", "ts"}, {"hw", "wh"}, {"kw", "kw"}, {"gw", "gw"}, {"sw", "sw"},
+    {"wz", "zw"}, {"ch", "ch"}, {"hs", "sh"}, {"tw", "tw"}, {"dw", "dw"}, {"fy", "fy"}, {"vy", "vy"},
+};
+
+// Gairaion with no y before the vowel. Any one consonant, y and a vowel, as
+// zye for じぇ, is one too.
 static const char *const gairai[] = {
-    "fa",  "fi",  "fe",  "fo",  "fyu", "va",  "vi",  "ve",  "vo",  "thi",
-    "thu", "dhi", "dhu", "twu", "dwu", "wi",  "we",  "who", "tsa", "tsi",
-    "tse", "tso", "che", "she", "je",  "ye",  "qa",  "qi",  "qe",  "qo",
-    "gwa", "swi", "zwi", "tyu", "dyu",
+    "fa",  "fi",  "fe",  "fo",  "va",  "vi",  "vu",  "ve",  "vo",  "thi", "thu", "dhi", "dhu",
+    "twu", "dwu", "wi",  "we",  "who", "tsa", "tsi", "tse", "tso", "che", "she", "je",  "ja",
+    "ju",  "jo",  "ye",  "qa",  "qi",  "qe",  "qo",  "kwa", "gwa", "swi", "zwi", "fyu", "vyu",
 };
 
 // The kana of the i row, after which や, ゆ, よ, う and お change.
@@ -326,8 +340,10 @@ static void queue_drop(uint8_t i) {
     qlen--;
 }
 
-static void sort_letters(char *s, uint8_t n) {
-    for (uint8_t i = 1; i < n; i++) {
+static void run_queue(uint8_t pos);
+
+static void sort_chars(char *s) {
+    for (uint8_t i = 1; s[i]; i++) {
         char    c = s[i];
         uint8_t j = i;
         for (; j > 0 && s[j - 1] > c; j--) s[j] = s[j - 1];
@@ -335,37 +351,151 @@ static void sort_letters(char *s, uint8_t n) {
     }
 }
 
-// The keys in the queue after P, pressed together: the gairaion their
-// letters spell, or else the half dakuten of the first and the rest one by one.
-static void resolve_group(void) {
-    char    letters[8];
-    uint8_t n = 0;
-    for (uint8_t i = 0; i < qlen && n < sizeof(letters) - 1; i++) letters[n++] = letter(queue[i]);
-    letters[n] = 0;
-    sort_letters(letters, n);
-    if (n >= 2) {
-        for (size_t g = 0; g < sizeof(gairai) / sizeof(gairai[0]); g++) {
-            char   s[8];
-            size_t l = strlen(gairai[g]);
-            if (l != n) continue;
-            memcpy(s, gairai[g], l + 1);
-            sort_letters(s, n);
-            if (strcmp(s, letters)) continue;
-            prefix = PRE_NONE;
-            strokes += n;
-            while (qlen) queue_drop(0);
-            send(gairai[g], NULL);
-            return;
+// The vowel chords of TK on-choku: their keys by letter in any order, and the
+// romaji they type after a consonant.
+static const char *const vowel_chords[][2] = {
+    {"a", "a"},       {"i", "i"},       {"u", "u"},       {"e", "e"},       {"o", "o"},
+    {"ia", "ya"},     {"iu", "yu"},     {"ie", "ye"},     {"io", "yo"},     {"iue", "iu"},
+    {"euo", "ie"},    {"ieuo", "io"},   {"aei", "ae"},    {"ia-", "yau"},   {"oae", "oo"},
+    {"i-", "ii"},     {"eio", "oi"},    {"eo", "ei"},     {"eu", "ui"},     {"ea", "ai"},
+    {"jo", "onn"},    {"iuo", "yuu"},   {"iao", "you"},   {"uo", "uu"},     {"oa", "ou"},
+    {"a-", "au"},     {"av", "ann"},    {"iv", "inn"},    {"uv", "unn"},    {"ev", "enn"},
+    {"ov", "onn"},    {"iav", "yann"},  {"iuv", "yunn"},  {"iev", "yenn"},  {"iov", "yonn"},
+    {"ax", "aku"},    {"ix", "iku"},    {"ux", "uku"},    {"axo", "eku"},   {"ox", "oku"},
+    {"iax", "yaku"},  {"iux", "yuku"},  {"iaox", "yeku"}, {"iox", "yoku"},  {"a,", "atu"},
+    {"i,", "itu"},    {"u,", "utu"},    {"e,", "etu"},    {"o,", "otu"},    {"ia,", "yatu"},
+    {"iu,", "yutu"},  {"ie,", "yetu"},  {"io,", "yotu"},  {"aj", "aki"},    {"ic", "iki"},
+    {"uj", "uki"},    {"ec", "eki"},    {"oc", "oki"},    {"al", "ati"},    {"ioae", "iti"},
+    {"ul", "uti"},    {"el", "eti"},    {"ol", "oti"},
+};
+
+// The romaji of the vowel chord whose keys spell s, sorted, or NULL.
+static const char *vowel_chord(const char *s) {
+    for (size_t i = 0; i < sizeof(vowel_chords) / sizeof(vowel_chords[0]); i++) {
+        char k[8];
+        strcpy(k, vowel_chords[i][0]);
+        sort_chars(k);
+        if (!strcmp(k, s)) return vowel_chords[i][1];
+    }
+    return NULL;
+}
+
+static bool in_vowel_chord(uint8_t p) {
+    char c = onchoku_letter[p];
+    return c && strchr("aiueo-,xjcvl", c);
+}
+
+// The gairaion spelt by queue[from] to queue[end - 1], one or two consonant
+// keys and then a vowel chord, written to out. False when they spell none,
+// or a plain kana such as ka.
+static bool gairai_of(uint8_t from, uint8_t end, char *out) {
+    char    cons[3], vow[8];
+    uint8_t nc = 0, nv = 0;
+    for (uint8_t i = from; i < end; i++) {
+        uint8_t p = queue[i];
+        if (!nv && !is_vowel(onchoku_letter[p])) {
+            if (!letter(p) || nc == 2) return false;
+            cons[nc++] = letter(p);
+            continue;
         }
+        if (!in_vowel_chord(p) || nv == sizeof(vow) - 1) return false;
+        vow[nv++] = onchoku_letter[p];
     }
-    while (qlen) {
-        uint8_t k = queue[0];
-        queue_drop(0);
-        step(k);
+    if (!nc || !nv) return false;
+    cons[nc] = 0;
+    vow[nv]  = 0;
+    sort_chars(cons);
+    sort_chars(vow);
+    const char *cl = nc == 1 ? cons : NULL;
+    for (size_t i = 0; nc == 2 && i < sizeof(clusters) / sizeof(clusters[0]); i++) {
+        if (!strcmp(clusters[i][0], cons)) cl = clusters[i][1];
     }
+    const char *v = vowel_chord(vow);
+    if (!cl || !v) return false;
+    // The first kana, as ふぁ in ふぁん, must be a gairaion.
+    char   head[6];
+    size_t hl = strlen(cl);
+    strcpy(head, cl);
+    head[hl]     = v[0];
+    head[hl + 1] = v[0] == 'y' ? v[1] : 0;
+    head[hl + 2] = 0;
+    bool ok      = nc == 1 && v[0] == 'y';
+    for (size_t g = 0; !ok && g < sizeof(gairai) / sizeof(gairai[0]); g++) ok = !strcmp(gairai[g], head);
+    if (!ok) return false;
+    strcpy(out, cl);
+    strcat(out, v);
+    return true;
+}
+
+// The chord after P is open from its first vowel until a key of its vowel
+// chord is released, a key outside it goes down, or ng_mark_gap_ms passes
+// after its last key. Its consonant keys may be let go before that.
+static bool     grp;
+static uint16_t grp_since;
+
+// Where the keys after P start in the queue, or -1 when P is not the last
+// prefix before them. P waiting in the queue counts when nothing before it
+// is a prefix that would change it.
+static int8_t after_p(void) {
+    if (prefix == PRE_P) return 0;
+    int8_t ip = queue_index(P_P);
+    if (ip < 0 || prefix != PRE_NONE) return -1;
+    for (int8_t i = 0; i < ip; i++) {
+        if (is_prefix(queue[i])) return -1;
+    }
+    return ip + 1;
 }
 
 uint16_t ng_mark_gap_ms = 50;
+
+// Close the chord over the keys before queue index end: send the gairaion
+// they spell, or leave them to be decided one by one.
+static void close_group(uint8_t end) {
+    grp         = false;
+    int8_t from = after_p();
+    if (from < 0 || from >= end) return;
+    char r[12];
+    if (!gairai_of((uint8_t)from, end, r)) return;
+    if (prefix != PRE_P) {
+        // Send the keys before P and take P as the prefix.
+        uint8_t before = qlen;
+        run_queue(P_P);
+        if (prefix != PRE_P) return;
+        end -= before - qlen;
+        from = 0;
+    }
+    for (uint8_t n = end - (uint8_t)from; n; n--) {
+        queue_drop((uint8_t)from);
+        strokes++;
+    }
+    prefix = PRE_NONE;
+    send(r, NULL);
+}
+
+// The key at the end of the queue went down: open the chord when it is a
+// vowel after P and held consonant keys, or close it when the key is no part
+// of it.
+static void press_group(uint16_t time) {
+    uint8_t p = queue[qlen - 1];
+    if (grp) {
+        if (in_vowel_chord(p)) {
+            grp_since = time;
+        } else {
+            close_group(qlen - 1);
+        }
+        return;
+    }
+    if (!is_vowel(onchoku_letter[p])) return;
+    int8_t from = after_p();
+    if (from < 0 || qlen - 1 - from < 1 || qlen - 1 - from > 2) return;
+    for (uint8_t i = (uint8_t)from; i < qlen - 1; i++) {
+        char c = letter(queue[i]);
+        if (!c || is_vowel(c) || !keys[queue[i]].down) return;
+    }
+    grp       = true;
+    grp_since = time;
+}
+
 
 // ! or ? for keys a and b that went down within ng_mark_gap_ms of each other.
 static const char *mark_of(uint8_t a, uint8_t b) {
@@ -380,10 +510,6 @@ static const char *mark_of(uint8_t a, uint8_t b) {
 // Decide the queue up to and including pos, or all of it when pos is NG_KEYS.
 static void run_queue(uint8_t pos) {
     while (qlen) {
-        if (prefix == PRE_P) {
-            resolve_group();
-            return;
-        }
         const char *mark = qlen >= 2 && prefix == PRE_NONE ? mark_of(queue[0], queue[1]) : NULL;
         if (mark) {
             uint8_t a = queue[0], b = queue[1];
@@ -412,6 +538,14 @@ void sq_press(uint8_t pos, uint16_t time) {
     keys[pos].live   = true;
     keys[pos].t_down = time;
     queue[qlen++]    = pos;
+    sent_in_call     = false;
+    press_group(time);
+}
+
+void sq_tick(uint16_t time) {
+    if (!grp || (uint16_t)(time - grp_since) <= ng_mark_gap_ms) return;
+    sent_in_call = false;
+    close_group(qlen);
 }
 
 void sq_release(uint8_t pos, uint16_t time) {
@@ -419,12 +553,27 @@ void sq_release(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
     sent_in_call   = false;
+    if (grp) {
+        // A consonant key let go after the vowel leaves the gairaion open.
+        int8_t from = after_p(), i = queue_index(pos);
+        bool   held = from >= 0 && i >= from;
+        bool   vowel = false;
+        for (int8_t j = from; held && j < qlen; j++) {
+            if (!is_vowel(onchoku_letter[queue[j]])) continue;
+            vowel = true;
+            if (j <= i) held = false;
+            break;
+        }
+        if (held && vowel) return;
+        close_group(qlen);
+    }
     if (keys[pos].live) run_queue(pos);
 }
 
 void sq_flush(uint16_t time) {
     (void)time;
     sent_in_call = false;
+    if (grp) close_group(qlen);
     run_queue(NG_KEYS);
     prefix = PRE_NONE;
     drop_strokes(0);
@@ -434,6 +583,7 @@ void sq_flush(uint16_t time) {
 bool sq_drop_prefix(uint16_t time) {
     (void)time;
     sent_in_call = false;
+    grp          = false;
     run_queue(NG_KEYS);
     bool had = prefix != PRE_NONE;
     prefix   = PRE_NONE;
@@ -447,6 +597,8 @@ bool sq_pending(void) { return qlen || prefix != PRE_NONE || last; }
 
 // A gairaion may be on its way: P is decided, or waits in the queue.
 static bool chord_pending(void) { return prefix == PRE_P || queue_index(P_P) >= 0; }
+
+bool sq_chord_pending(void) { return chord_pending(); }
 
 bool sq_can_chord(uint8_t a, uint8_t b) { return a < NG_KEYS && b < NG_KEYS && a != b && chord_pending(); }
 
@@ -478,6 +630,7 @@ void sq_reset(void) {
     carry   = 0;
     last    = NULL;
     bracket_prefix = 0;
+    grp            = false;
 }
 
 char sq_take_bracket_prefix(void) {

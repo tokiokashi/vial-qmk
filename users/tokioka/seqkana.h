@@ -9,6 +9,8 @@
 void     sq_press(uint8_t pos, uint16_t time);
 void     sq_release(uint8_t pos, uint16_t time);
 void     sq_flush(uint16_t time);
+void     sq_tick(uint16_t time);
+bool     sq_chord_pending(void);
 bool     sq_pending(void);
 bool     sq_can_chord(uint8_t a, uint8_t b);
 bool     sq_mark_chord(uint8_t a, uint8_t b, uint16_t time);
