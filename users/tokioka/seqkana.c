@@ -12,6 +12,8 @@
 // - Del right after a prefix key drops the prefix.
 // - A kana typed with n keys is sent as n parts of its romaji, ng_stroke_gap_ms
 //   apart, so a typing tester that counts signals 10 ms apart counts the keys.
+//   Keys left over by a short romaji, as あ typed with K and V, are added to
+//   the parts of the kana sent next.
 //
 // Keys are taken in the order they went down, and each one is decided when it
 // or a key pressed after it is released. A tap-hold key held as a modifier
@@ -84,6 +86,9 @@ static const char *last;
 uint8_t ng_stroke_gap_ms = 15;
 // Keys typed for the kana not sent yet, and whether this call sent anything.
 static uint8_t strokes;
+// Keys typed for kana sent already that their romaji was too short to show.
+static uint8_t carry;
+#define CARRY_MAX 8
 static bool    sent_in_call;
 
 static bool is_left(uint8_t p) { return p % 10 < 5; }
@@ -116,11 +121,11 @@ static bool youon_exception(const char *y) {
     return !strcmp(y, "yo") && !strcmp(last, "ni");
 }
 
-// The romaji goes out in as many parts as the keys typed for it: one letter
-// each, and the rest with the last part.
+// The romaji goes out in as many parts as the keys typed for it and those
+// carried over: one letter each, and the rest with the last part.
 static void send(const char *r, const char *kana) {
-    size_t len = strlen(r), parts = strokes ? strokes : 1;
-    if (parts > len) parts = len;
+    size_t len = strlen(r), want = (strokes ? strokes : 1) + carry, parts = want < len ? want : len;
+    carry      = want - parts > CARRY_MAX ? CARRY_MAX : (uint8_t)(want - parts);
     for (size_t i = 0; i < parts; i++) {
         char   buf[8];
         size_t n = i + 1 < parts ? 1 : len - i;
@@ -172,11 +177,20 @@ static bool is_prefix(uint8_t p) { return p == P_D || p == P_K || p == P_L || p 
 
 static void dispatch(uint8_t k);
 
+// Keys typed for nothing sent, and extra keys such as Del, go to the kana
+// sent next.
+static void drop_strokes(uint8_t extra) {
+    uint16_t c = (uint16_t)carry + strokes + extra;
+    carry      = c > CARRY_MAX ? CARRY_MAX : (uint8_t)c;
+    strokes    = 0;
+}
+
 static void step(uint8_t k) {
     strokes++;
     dispatch(k);
-    // A key that gave nothing, such as P and then a key with no half dakuten.
-    if (prefix == PRE_NONE) strokes = 0;
+    // A key that gave nothing, such as P and then a key with no half dakuten,
+    // goes to the kana sent next.
+    if (prefix == PRE_NONE) drop_strokes(0);
 }
 
 static void dispatch(uint8_t k) {
@@ -339,9 +353,9 @@ void sq_flush(uint16_t time) {
     (void)time;
     sent_in_call = false;
     run_queue(NG_KEYS);
-    prefix  = PRE_NONE;
-    strokes = 0;
-    last    = NULL;
+    prefix = PRE_NONE;
+    drop_strokes(0);
+    last = NULL;
 }
 
 bool sq_drop_prefix(uint16_t time) {
@@ -350,8 +364,9 @@ bool sq_drop_prefix(uint16_t time) {
     run_queue(NG_KEYS);
     bool had = prefix != PRE_NONE;
     prefix   = PRE_NONE;
-    strokes  = 0;
-    last     = NULL;
+    // Del is not sent when it drops a prefix, so it counts with the next kana.
+    drop_strokes(had ? 1 : 0);
+    last = NULL;
     return had;
 }
 
@@ -379,4 +394,13 @@ void sq_cancel(uint8_t pos) {
 void sq_forget(uint8_t pos) {
     sq_cancel(pos);
     if (pos < NG_KEYS) keys[pos].down = false;
+}
+
+void sq_reset(void) {
+    memset(keys, 0, sizeof(keys));
+    qlen    = 0;
+    prefix  = PRE_NONE;
+    strokes = 0;
+    carry   = 0;
+    last    = NULL;
 }

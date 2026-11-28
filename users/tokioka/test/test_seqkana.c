@@ -5,6 +5,7 @@
 // and ! is Del (it shows [DEL] when there was no prefix to drop). ~ is the
 // wait between the parts of a kana typed with more than one key.
 #include "naginata.h"
+#include "seqkana.h"
 #include <stdio.h>
 #include <string.h>
 static char out[512];
@@ -20,7 +21,7 @@ static int pos(char c){const char*p=strchr(K,c);return p?p-K:-1;}
 static int fails;
 
 static void run(const char *name,const char *sc,const char *want){
-  out[0]=0; uint16_t t=1000;
+  out[0]=0; uint16_t t=1000; sq_reset();
   for(const char*p=sc;*p;){
     if(*p==' '){p++;continue;}
     if(*p=='@'){int n;sscanf(p+1,"%d",&n);t+=n;p++;while(*p>='0'&&*p<='9')p++;continue;}
@@ -34,6 +35,7 @@ static void run(const char *name,const char *sc,const char *want){
 }
 int main(){
   ng_sequential=true;
+  ng_stroke_gap_ms=15;
   run("ko","w","ko ");
   run("D same hand","dw","ltu ~ ko ");
   run("mi K","kw","m ~ i ");
@@ -74,14 +76,17 @@ int main(){
   run("dhi","p +m +; +s -m -; -s","d ~ h ~ i ");
   run("pu group1","p +s -s","p ~ u ");
   run("P no match","p +h +j -h -j","p ~ i ~ nn ");
-  run("Del cancel","d!w","ko ");
+  run("Del cancel","d!w","k ~ o ");
+  run("Del carried","d!a","t ~ o ");
   run("Del no prefix","w!","ko [DEL] ");
-  run("Del held D","+d !-d w","ko ");
-  run("arigatou","kvolfau","a ri g ~ a to u ");
+  run("Del held D","+d !-d w","k ~ o ");
+  run("arigatou","kvolfau","a r ~ i g ~ a to u ");
   run("gozaimasu","lwljsdm,","g ~ o z ~ a i m ~ a su ");
   run("touten","t",", ");
   run("ta","v","ta ");
   run("ltu ta","dv","ltu ~ ta ");
+  run("a carried","kv f","a k ~ a ");
+  run("e a carried","kx kv ws","e a k ~ o i ");
   printf("%d failures\n",fails);
   return fails != 0;
 }
