@@ -53,3 +53,5 @@ void ng_send_romaji(const char *romaji);
 void ng_ime(bool on);
 void ng_tap_esc(void);
 void ng_wait_ms(uint16_t ms);
+// Whether the key at pos is a tap-hold key, which gives a modifier when held.
+bool ng_is_tap_hold(uint8_t pos);

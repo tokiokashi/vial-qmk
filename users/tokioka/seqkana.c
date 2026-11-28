@@ -20,20 +20,24 @@
 //   key is taken as usual.
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
-//   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
-// - , and . pressed within ng_mark_gap_ms give !, and . and / give ?, as in
-//   TK on-choku.
+//   [ and ] s[ and s]. The back faces of T, Y and B are !, ? and ・, and D
+//   and then N gives っ alone.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
+// - R and T pressed within ng_mark_gap_ms give !, and Y and U give ?. Alone,
+//   they wait that long for the other one before their kana is sent.
+// - Q is Esc.
 // - Del right after a prefix key drops the prefix.
 // - A kana typed with n keys is sent as n parts of its romaji, ng_stroke_gap_ms
 //   apart, so a typing tester that counts signals 10 ms apart counts the keys.
 //   Keys left over by a short romaji, as あ typed with K and V, are added to
 //   the parts of the kana sent next.
 //
-// Keys are taken in the order they went down, and each one is decided when it
-// or a key pressed after it is released. A tap-hold key held as a modifier
-// is dropped from the queue by kana_mode.c before that.
+// Keys are taken in the order they went down. A key is decided as it goes
+// down, with the keys before it, unless it is a prefix key or a tap-hold key,
+// a tap-hold key is down or waiting, or P waits for a gairaion chord. Then
+// it is decided when it or a key pressed after it is released. A tap-hold
+// key held as a modifier is dropped from the queue by kana_mode.c before that.
 
 #include "naginata.h"
 #include "seqkana.h"
@@ -46,16 +50,17 @@ enum {
     P_Z, P_X, P_C, P_V, P_B, P_N, P_M, P_CM, P_DT, P_SL,
 };
 
-// The faces in romaji. D, K, L and P are prefix keys and have no front face.
+// The faces in romaji. D, K, L and P are prefix keys and have no front face,
+// and Q is Esc.
 static const char *const front_face[NG_KEYS] = {
     NULL, "ko", "no", "ni", ",",  ".",  "u",  "si", "ri", NULL,
     "to", "i",  NULL, "ka", "o",  "-",  "nn", NULL, NULL, "na",
     "ya", "ku", "yo", "ta", "yu", "tu", "te", "su", "ru", "ki",
 };
 static const char *const back_face[NG_KEYS] = {
-    NULL, "mi", "se", "ho", NULL, "/",  "wa", "ro", "ti", NULL,
+    NULL, "mi", "se", "ho", "!",  "?",  "wa", "ro", "ti", NULL,
     "mu", "hu", "ha", "mo", "he", "hi", "sa", "ke", "ra", "so",
-    "nu", "e",  "re", "a",  NULL, "ltu", "ma", "wo", "me", "ne",
+    "nu", "e",  "re", "a",  "/",  "ltu", "ma", "wo", "me", "ne",
 };
 
 typedef struct {
@@ -264,6 +269,13 @@ static void dispatch(uint8_t k) {
         case PRE_NONE:
             if (is_prefix(k)) {
                 prefix = k == P_D ? PRE_D : k == P_K ? PRE_K : k == P_L ? PRE_L : PRE_P;
+                return;
+            }
+            if (k == P_Q) {
+                // Q is Esc, which is no kana and counts no key.
+                ng_tap_esc();
+                strokes = 0;
+                last    = NULL;
                 return;
             }
             send_kana(front_face[k]);
@@ -545,15 +557,22 @@ static void press_group(uint16_t time) {
 }
 
 
-// ! or ? for keys a and b that went down within ng_mark_gap_ms of each other.
+// ! for R and T, or ? for Y and U, pressed within ng_mark_gap_ms of each other.
 static const char *mark_of(uint8_t a, uint8_t b) {
     uint16_t d = keys[a].t_down - keys[b].t_down;
     if ((uint16_t)(keys[b].t_down - keys[a].t_down) < d) d = keys[b].t_down - keys[a].t_down;
     if (d > ng_mark_gap_ms) return NULL;
-    if ((a == P_CM && b == P_DT) || (a == P_DT && b == P_CM)) return "!";
-    if ((a == P_DT && b == P_SL) || (a == P_SL && b == P_DT)) return "?";
+    if ((a == P_R && b == P_T) || (a == P_T && b == P_R)) return "!";
+    if ((a == P_Y && b == P_U) || (a == P_U && b == P_Y)) return "?";
     return NULL;
 }
+
+static bool is_mark_key(uint8_t p) { return p == P_R || p == P_T || p == P_Y || p == P_U; }
+
+// A key of the ! or ? pairs went down alone and waits ng_mark_gap_ms for the
+// other one.
+static bool     mark_wait;
+static uint16_t mark_since;
 
 // Keys a and b are consonants of a cluster, pressed within ng_mark_gap_ms.
 static bool cluster_pair(uint8_t a, uint8_t b) {
@@ -598,6 +617,17 @@ static void run_queue(uint8_t pos) {
     }
 }
 
+static bool chord_pending(void);
+
+// A tap-hold key is down or not decided yet, so keys after it may be typed
+// with its modifier.
+static bool tap_hold_pending(void) {
+    for (uint8_t p = 0; p < NG_KEYS; p++) {
+        if ((keys[p].down || keys[p].live) && ng_is_tap_hold(p)) return true;
+    }
+    return false;
+}
+
 void sq_press(uint8_t pos, uint16_t time) {
     if (pos >= NG_KEYS) return;
     if (keys[pos].live) {
@@ -610,9 +640,25 @@ void sq_press(uint8_t pos, uint16_t time) {
     queue[qlen++]    = pos;
     sent_in_call     = false;
     press_group(time);
+    // A key that is no prefix and no tap-hold key is decided as it goes
+    // down, with the keys before it, unless a tap-hold key may make it a
+    // shortcut or P waits for a gairaion chord.
+    mark_wait = false;
+    if (grp || is_prefix(pos) || tap_hold_pending() || chord_pending()) return;
+    if (is_mark_key(pos) && qlen == 1 && prefix == PRE_NONE) {
+        mark_wait  = true;
+        mark_since = time;
+        return;
+    }
+    run_queue(pos);
 }
 
 void sq_tick(uint16_t time) {
+    if (mark_wait && (uint16_t)(time - mark_since) > ng_mark_gap_ms) {
+        mark_wait    = false;
+        sent_in_call = false;
+        if (qlen && !tap_hold_pending() && !chord_pending()) run_queue(queue[qlen - 1]);
+    }
     if (!grp || (uint16_t)(time - grp_since) <= ng_mark_gap_ms) return;
     sent_in_call = false;
     close_group(qlen);
@@ -701,6 +747,7 @@ void sq_reset(void) {
     last    = NULL;
     bracket_prefix = 0;
     grp            = false;
+    mark_wait      = false;
 }
 
 char sq_take_bracket_prefix(void) {

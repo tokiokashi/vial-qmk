@@ -69,6 +69,7 @@ void ng_tap_esc(void) { tap_code(KC_ESC); }
 void ng_wait_ms(uint16_t ms) { wait_ms(ms); }
 
 
+
 void eeconfig_init_user(void) {
     cfg.raw = 0;
     eeconfig_update_user(cfg.raw);
@@ -82,9 +83,12 @@ void kana_mode_init(void) {
 
 // Tap-hold keys held as kana when a key outside the engine comes, such as Tab
 // for Ctrl+Shift+Tab with hi and ko held, turn into their modifiers. Kana are
-// decided on release, so Space or Enter after a roll does not meet a held key.
+// decided on release around them, so Space or Enter after a roll does not
+// meet a held key.
 static keypos_t key_at[NG_KEYS];
 static uint8_t  retro_mods[NG_KEYS];
+
+bool ng_is_tap_hold(uint8_t pos) { return pos < NG_KEYS && IS_QK_MOD_TAP(keycode_at_keymap_location(0, key_at[pos].row, key_at[pos].col)); }
 
 #define TAKE_MODS_WAIT_MS 1
 
