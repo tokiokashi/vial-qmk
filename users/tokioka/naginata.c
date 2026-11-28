@@ -6,9 +6,11 @@
 // Kana are sent as romaji, so the IME must be in romaji mode.
 
 #include "naginata.h"
+#include "seqkana.h"
 #include <stddef.h>
 #include <string.h>
 
+bool    ng_sequential  = false;
 bool    ng_post_shift  = true;
 uint8_t ng_overlap_pct = 66;
 // A youon pair also counts when its two keys go down within this many ms, as a
@@ -472,6 +474,11 @@ static void mark_on_press(uint8_t pos, uint16_t time) {
 }
 
 void ng_press(uint8_t pos, uint16_t time) {
+    if (ng_sequential) {
+        sq_press(pos, time);
+        return;
+    }
+
     if (pos >= NG_KEYS) return;
     if (keys[pos].live) resolve(pos, time);
     keys[pos] = (ngkey_t){.t_down = time, .down = true, .live = true};
@@ -573,6 +580,11 @@ static bool tap_inside_kana(uint8_t pos, uint16_t now) {
 }
 
 void ng_release(uint8_t pos, uint16_t time) {
+    if (ng_sequential) {
+        sq_release(pos, time);
+        return;
+    }
+
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
     keys[pos].t_up = time;
@@ -587,6 +599,11 @@ void ng_release(uint8_t pos, uint16_t time) {
 }
 
 void ng_flush(uint16_t time) {
+    if (ng_sequential) {
+        sq_flush(time);
+        return;
+    }
+
     // A key outside the engine came while these were held.
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         if (keys[p].down) keys[p].touched = true;
@@ -610,6 +627,8 @@ void ng_flush(uint16_t time) {
 }
 
 char ng_take_bracket_prefix(void) {
+    if (ng_sequential) return 0;
+
     char c         = bracket_prefix;
     bracket_prefix = 0;
     arrow_next     = false;
@@ -617,6 +636,8 @@ char ng_take_bracket_prefix(void) {
 }
 
 bool ng_pending(void) {
+    if (ng_sequential) return sq_pending();
+
     for (uint8_t p = 0; p < NG_KEYS; p++) {
         if (keys[p].live) return true;
     }
@@ -630,6 +651,8 @@ static bool in_gairai(const gairai_t *g, uint8_t p) {
 }
 
 bool ng_can_chord(uint8_t a, uint8_t b) {
+    if (ng_sequential) return sq_can_chord(a, b);
+
     if (a >= NG_KEYS || b >= NG_KEYS || a == b) return false;
     for (size_t i = 0; i < sizeof(gairai) / sizeof(gairai[0]); i++) {
         if (in_gairai(&gairai[i], a) && in_gairai(&gairai[i], b)) return true;
@@ -652,22 +675,42 @@ bool ng_can_chord(uint8_t a, uint8_t b) {
 }
 
 bool ng_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
+    if (ng_sequential) return sq_mark_chord(a, b, time);
+
     if (a >= NG_KEYS || b >= NG_KEYS || !is_mark_pair(a, b)) return false;
     uint16_t sa = start_ago(&keys[a], time), sb = start_ago(&keys[b], time);
     return (sa > sb ? sa - sb : sb - sa) <= ng_yoon_gap_ms;
 }
 
-bool ng_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }
+bool ng_down(uint8_t pos) {
+    if (ng_sequential) return sq_down(pos);
+    return pos < NG_KEYS && keys[pos].down;
+}
 
-uint16_t ng_down_ms(uint8_t pos, uint16_t time) { return pos < NG_KEYS ? start_ago(&keys[pos], time) : 0; }
+uint16_t ng_down_ms(uint8_t pos, uint16_t time) {
+    if (ng_sequential) return sq_down_ms(pos, time);
+    return pos < NG_KEYS ? start_ago(&keys[pos], time) : 0;
+}
+
+bool ng_drop_prefix(uint16_t time) { return ng_sequential && sq_drop_prefix(time); }
 
 void ng_cancel(uint8_t pos) {
+    if (ng_sequential) {
+        sq_cancel(pos);
+        return;
+    }
+
     if (pos >= NG_KEYS) return;
     keys[pos].live = false;
     keys[pos].used = true;
 }
 
 void ng_forget(uint8_t pos) {
+    if (ng_sequential) {
+        sq_forget(pos);
+        return;
+    }
+
     if (pos >= NG_KEYS) return;
     keys[pos].live = false;
     keys[pos].used = false;

@@ -1,4 +1,5 @@
-// Kana mode switching for the tokioka keymaps: TK on-choku or f1898.
+// Kana mode switching for the tokioka keymaps: TK on-choku, f1898 or the
+// sequential layout.
 #pragma once
 
 #include QMK_KEYBOARD_H
@@ -9,6 +10,8 @@ enum kana_keycodes {
     NG_POST,         // switch whether a shift pressed after the kana applies
     NG_ONCHOKU,      // make hj go to TK on-choku, for a tap dance or a layer
     NG_NAGINATA,     // make hj go to f1898
+    NG_SEQ_SW,       // make hj go to f1898 or the sequential layout, whichever it did not
+    NG_SEQUENTIAL,   // make hj go to the sequential layout
 };
 
 // How a Vial combo slot behaves by mode.

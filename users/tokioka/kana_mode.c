@@ -1,5 +1,6 @@
 // hj (KC_LNG1) turns the IME on and goes to the kana layout chosen by NG_SW:
-// TK on-choku or f1898, the engine in naginata.c. fg (KC_LNG2) turns it off.
+// TK on-choku or a layout of the engine in naginata.c, which is f1898 or the
+// sequential layout in seqkana.c by NG_SEQ_SW. fg (KC_LNG2) turns it off.
 // In f1898 mode the alpha keys of layer 0 are read by position, and a
 // tap-hold key on the bottom row still gives its modifier when held.
 
@@ -15,6 +16,7 @@ typedef union {
     struct {
         bool naginata : 1;
         bool prefix_only : 1;
+        bool sequential : 1; // the engine runs the sequential layout, not f1898
     };
 } user_config_t;
 
@@ -64,6 +66,17 @@ void ng_ime(bool on) {
 
 void ng_tap_esc(void) { tap_code(KC_ESC); }
 
+void ng_wait_ms(uint16_t ms) { wait_ms(ms); }
+
+static keypos_t key_at[NG_KEYS];
+
+char ng_letter(uint8_t pos) {
+    if (pos >= NG_KEYS) return 0;
+    uint16_t kc = keycode_at_keymap_location(0, key_at[pos].row, key_at[pos].col);
+    if (IS_QK_MOD_TAP(kc)) kc = QK_MOD_TAP_GET_TAP_KEYCODE(kc);
+    return kc >= KC_A && kc <= KC_Z ? (char)('a' + (kc - KC_A)) : 0;
+}
+
 void eeconfig_init_user(void) {
     cfg.raw = 0;
     eeconfig_update_user(cfg.raw);
@@ -72,13 +85,13 @@ void eeconfig_init_user(void) {
 void kana_mode_init(void) {
     cfg.raw       = eeconfig_read_user();
     ng_post_shift = !cfg.prefix_only;
+    ng_sequential = cfg.sequential;
 }
 
 // Tap-hold keys held as kana when a key outside the engine comes, such as Tab
 // for Ctrl+Shift+Tab with hi and ko held, turn into their modifiers. Kana are
 // decided on release, so Space or Enter after a roll does not meet a held key.
-static keypos_t key_at[NG_KEYS];
-static uint8_t  retro_mods[NG_KEYS];
+static uint8_t retro_mods[NG_KEYS];
 
 #define TAKE_MODS_WAIT_MS 1
 
@@ -196,7 +209,11 @@ static void vm_word_task(void) {
 static int8_t   lone_pos = -1;
 static uint16_t lone_time;
 
-static bool is_lone_shift(int8_t p) { return p == 3 || p == 6 || p == 12 || p == 13 || p == 16 || p == 17; }
+// In the sequential layout these are the prefix keys D, K, L and P.
+static bool is_lone_shift(int8_t p) {
+    if (cfg.sequential) return p == 9 || p == 12 || p == 17 || p == 18;
+    return p == 3 || p == 6 || p == 12 || p == 13 || p == 16 || p == 17;
+}
 
 static void lone_track(int8_t pos, bool pressed, uint16_t time) {
     if (pressed) {
@@ -357,9 +374,19 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
         case NG_SW:
         case NG_ONCHOKU:
         case NG_NAGINATA:
+        case NG_SEQ_SW:
+        case NG_SEQUENTIAL:
             if (pressed) {
                 ng_flush(time);
-                cfg.naginata = keycode == NG_SW ? !cfg.naginata : keycode == NG_NAGINATA;
+                if (keycode == NG_SW) {
+                    cfg.naginata = !cfg.naginata;
+                } else if (keycode == NG_ONCHOKU) {
+                    cfg.naginata = false;
+                } else {
+                    cfg.naginata   = true;
+                    cfg.sequential = keycode == NG_SEQ_SW ? !cfg.sequential : keycode == NG_SEQUENTIAL;
+                }
+                ng_sequential = cfg.sequential;
                 eeconfig_update_user(cfg.raw);
             }
             return false;
@@ -450,6 +477,20 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
             }
         } else {
             inner_settle();
+        }
+    }
+
+    // In the sequential layout, Del right after a prefix key drops the prefix
+    // and is not sent.
+    static bool del_dropped;
+    if (keycode == KC_DEL) {
+        if (pressed && naginata_on() && on_kana_layer() && ng_drop_prefix(time)) {
+            del_dropped = true;
+            return false;
+        }
+        if (!pressed && del_dropped) {
+            del_dropped = false;
+            return false;
         }
     }
 
