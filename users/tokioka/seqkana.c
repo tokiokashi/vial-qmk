@@ -13,7 +13,9 @@
 //   key outside it goes down, or ng_mark_gap_ms passes after its last key. A
 //   romaji whose first kana is a plain one, such as ka, is no gairaion.
 //   The consonant keys may also be typed one by one before the vowel chord,
-//   as P, J, ; and S for てぃ. H gives ぴ, so a gairaion of k is not typed so.
+//   as P, J, ; and S for てぃ. H gives ぴ, so a gairaion of k is not typed so,
+//   but H and U pressed within ng_mark_gap_ms are k and w even when let go
+//   before the vowel, as are any two keys of a cluster.
 //   Consonants and then a key that spells no gairaion give nothing, and the
 //   key is taken as usual.
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
@@ -553,9 +555,31 @@ static const char *mark_of(uint8_t a, uint8_t b) {
     return NULL;
 }
 
+// Keys a and b are consonants of a cluster, pressed within ng_mark_gap_ms.
+static bool cluster_pair(uint8_t a, uint8_t b) {
+    char x = letter(a), y = letter(b);
+    if (!x || !y || is_vowel(x) || is_vowel(y) || !is_cluster(x, y)) return false;
+    return (uint16_t)(keys[b].t_down - keys[a].t_down) <= ng_mark_gap_ms;
+}
+
 // Decide the queue up to and including pos, or all of it when pos is NG_KEYS.
 static void run_queue(uint8_t pos) {
     while (qlen) {
+        if (prefix == PRE_P && qlen >= 2 && cluster_pair(queue[0], queue[1])) {
+            // Two consonant keys pressed together after P, as H and U for kw,
+            // are the consonants of a gairaion even when the first has a half
+            // dakuten.
+            uint8_t a = queue[0], b = queue[1];
+            pcons[0]  = letter(a);
+            pcons[1]  = letter(b);
+            npcons    = 2;
+            prefix    = PRE_PC;
+            queue_drop(0);
+            queue_drop(0);
+            strokes += 2;
+            if (a == pos || b == pos) return;
+            continue;
+        }
         const char *mark = qlen >= 2 && prefix == PRE_NONE ? mark_of(queue[0], queue[1]) : NULL;
         if (mark) {
             uint8_t a = queue[0], b = queue[1];
