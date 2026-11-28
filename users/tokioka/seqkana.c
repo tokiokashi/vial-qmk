@@ -65,8 +65,9 @@ static const pair_t handakuten[] = {
     {"ha", "pa"}, {"hi", "pi"}, {"hu", "pu"}, {"he", "pe"}, {"ho", "po"},
 };
 
-// The letters of TK on-choku, which is the Onishi layout, by key position.
-static const char onchoku_letter[NG_KEYS + 1] = "qlu,.fwryp" "eiao-ktnsh" "zxcv;gdmjb";
+// The letters of TK on-choku by key position. They differ from the Onishi
+// layout on Z, X and the full stop key.
+static const char onchoku_letter[NG_KEYS + 1] = "qlu,.fwryp" "eiao-ktnsh" "xjcv/gdmzb";
 static char letter(uint8_t p) {
     char c = onchoku_letter[p];
     return c >= 'a' && c <= 'z' ? c : 0;
