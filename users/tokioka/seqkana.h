@@ -1,4 +1,4 @@
-// Kana engine for the sequential layout, typed one key after another.
+// Kana engine for Tsukuyomi (月夜見), the layout typed one key after another.
 // naginata.c hands every call to these when ng_sequential is set, so they
 // follow the ng_ functions of naginata.h one for one.
 #pragma once
