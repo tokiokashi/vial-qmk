@@ -116,6 +116,11 @@ int main(){
   run("tap-hold on release","+v | -v","| ta ");
   run("inside tap-hold","+v +f | -f -v","| ta ~ ka ");
   run("after tap-hold","v +f | -f","ta ka | ");
+  run("exclamation","+r @10 +t @40 -r -t","! ");
+  run("question","+u @10 +y @40 -u -y","? ");
+  run("ni then comma","+r @70 +t -r -t","ni , ");
+  run("ni waits","+r @30 | @30 | -r","| ni | ");
+  run("ni then ka","+r @10 +f | -r -f","ni ~ ka | ");
   run("suru roll","+, @60 +. @40 -, -.","su ru ");
   run("suru apart","+, @40 -, @20 +. @40 -.","su ru ");
   run("ltu alone","dn","l ~ tu ");

@@ -23,6 +23,8 @@
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
+// - R and T pressed within ng_mark_gap_ms give !, and Y and U give ?. Alone,
+//   they wait that long for the other one before their kana is sent.
 // - Del right after a prefix key drops the prefix.
 // - A kana typed with n keys is sent as n parts of its romaji, ng_stroke_gap_ms
 //   apart, so a typing tester that counts signals 10 ms apart counts the keys.
@@ -545,6 +547,23 @@ static void press_group(uint16_t time) {
 }
 
 
+// ! for R and T, or ? for Y and U, pressed within ng_mark_gap_ms of each other.
+static const char *mark_of(uint8_t a, uint8_t b) {
+    uint16_t d = keys[a].t_down - keys[b].t_down;
+    if ((uint16_t)(keys[b].t_down - keys[a].t_down) < d) d = keys[b].t_down - keys[a].t_down;
+    if (d > ng_mark_gap_ms) return NULL;
+    if ((a == P_R && b == P_T) || (a == P_T && b == P_R)) return "!";
+    if ((a == P_Y && b == P_U) || (a == P_U && b == P_Y)) return "?";
+    return NULL;
+}
+
+static bool is_mark_key(uint8_t p) { return p == P_R || p == P_T || p == P_Y || p == P_U; }
+
+// A key of the ! or ? pairs went down alone and waits ng_mark_gap_ms for the
+// other one.
+static bool     mark_wait;
+static uint16_t mark_since;
+
 // Keys a and b are consonants of a cluster, pressed within ng_mark_gap_ms.
 static bool cluster_pair(uint8_t a, uint8_t b) {
     char x = letter(a), y = letter(b);
@@ -567,6 +586,17 @@ static void run_queue(uint8_t pos) {
             queue_drop(0);
             queue_drop(0);
             strokes += 2;
+            if (a == pos || b == pos) return;
+            continue;
+        }
+        const char *mark = qlen >= 2 && prefix == PRE_NONE ? mark_of(queue[0], queue[1]) : NULL;
+        if (mark) {
+            uint8_t a = queue[0], b = queue[1];
+            queue_drop(0);
+            queue_drop(0);
+            bracket_prefix = 0;
+            strokes += 2;
+            send(mark, NULL);
             if (a == pos || b == pos) return;
             continue;
         }
@@ -603,10 +633,22 @@ void sq_press(uint8_t pos, uint16_t time) {
     // A key that is no prefix and no tap-hold key is decided as it goes
     // down, with the keys before it, unless a tap-hold key may make it a
     // shortcut or P waits for a gairaion chord.
-    if (!grp && !is_prefix(pos) && !tap_hold_pending() && !chord_pending()) run_queue(pos);
+    mark_wait = false;
+    if (grp || is_prefix(pos) || tap_hold_pending() || chord_pending()) return;
+    if (is_mark_key(pos) && qlen == 1 && prefix == PRE_NONE) {
+        mark_wait  = true;
+        mark_since = time;
+        return;
+    }
+    run_queue(pos);
 }
 
 void sq_tick(uint16_t time) {
+    if (mark_wait && (uint16_t)(time - mark_since) > ng_mark_gap_ms) {
+        mark_wait    = false;
+        sent_in_call = false;
+        if (qlen && !tap_hold_pending() && !chord_pending()) run_queue(queue[qlen - 1]);
+    }
     if (!grp || (uint16_t)(time - grp_since) <= ng_mark_gap_ms) return;
     sent_in_call = false;
     close_group(qlen);
@@ -669,7 +711,7 @@ bool sq_can_chord(uint8_t a, uint8_t b) { return a < NG_KEYS && b < NG_KEYS && a
 bool sq_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
     (void)time;
     if (a >= NG_KEYS || b >= NG_KEYS || !keys[a].live || !keys[b].live) return false;
-    return sq_can_chord(a, b);
+    return sq_can_chord(a, b) || mark_of(a, b);
 }
 
 bool sq_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }
@@ -695,6 +737,7 @@ void sq_reset(void) {
     last    = NULL;
     bracket_prefix = 0;
     grp            = false;
+    mark_wait      = false;
 }
 
 char sq_take_bracket_prefix(void) {
