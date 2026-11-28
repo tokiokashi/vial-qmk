@@ -352,6 +352,13 @@ bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos)
     uint16_t time    = record->event.time;
     bool     pressed = record->event.pressed;
 
+    // ! and ? of the sequential layout follow the combo term set in Vial.
+#ifdef QMK_SETTINGS
+    ng_mark_gap_ms = QS.combo_term;
+#elif defined(COMBO_TERM)
+    ng_mark_gap_ms = COMBO_TERM;
+#endif
+
     switch (keycode) {
         case KC_LNG1:
         case KC_LNG2:

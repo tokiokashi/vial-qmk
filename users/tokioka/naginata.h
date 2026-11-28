@@ -13,6 +13,9 @@ extern bool    ng_sequential; // the keys go to the sequential layout in seqkana
 // In the sequential layout, a kana typed with n keys goes out as n parts of
 // its romaji this many ms apart, so a typing tester can count the keys. 0 sends it at once.
 extern uint8_t ng_stroke_gap_ms;
+// In the sequential layout, , and . or . and / pressed within this many ms
+// give ! or ?. kana_mode.c sets it to the combo term set in Vial.
+extern uint16_t ng_mark_gap_ms;
 extern bool    ng_post_shift; // a shift pressed after the kana still applies
 // Whether the key at pos is held down, and for how long.
 bool     ng_down(uint8_t pos);

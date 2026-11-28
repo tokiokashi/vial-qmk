@@ -10,7 +10,8 @@
 // - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
 //   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
 //   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
-// - , and . pressed together give !, and . and / give ?, as in TK on-choku.
+// - , and . pressed within ng_mark_gap_ms give !, and . and / give ?, as in
+//   TK on-choku.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
 // - Del right after a prefix key drops the prefix.
@@ -363,11 +364,13 @@ static void resolve_group(void) {
     }
 }
 
-// ! or ? for keys a and b that went down within ng_yoon_gap_ms of each other.
+uint16_t ng_mark_gap_ms = 50;
+
+// ! or ? for keys a and b that went down within ng_mark_gap_ms of each other.
 static const char *mark_of(uint8_t a, uint8_t b) {
     uint16_t d = keys[a].t_down - keys[b].t_down;
     if ((uint16_t)(keys[b].t_down - keys[a].t_down) < d) d = keys[b].t_down - keys[a].t_down;
-    if (d > ng_yoon_gap_ms) return NULL;
+    if (d > ng_mark_gap_ms) return NULL;
     if ((a == P_CM && b == P_DT) || (a == P_DT && b == P_CM)) return "!";
     if ((a == P_DT && b == P_SL) || (a == P_SL && b == P_DT)) return "?";
     return NULL;
