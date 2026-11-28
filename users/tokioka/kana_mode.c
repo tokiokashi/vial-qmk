@@ -66,6 +66,8 @@ void ng_ime(bool on) {
 
 void ng_tap_esc(void) { tap_code(KC_ESC); }
 
+void ng_wait_ms(uint16_t ms) { wait_ms(ms); }
+
 static keypos_t key_at[NG_KEYS];
 
 char ng_letter(uint8_t pos) {

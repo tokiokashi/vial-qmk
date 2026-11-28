@@ -2,7 +2,8 @@
 //   gcc -I. test/test_seqkana.c seqkana.c naginata.c -o /tmp/t && /tmp/t
 // Each line is "ok name keys => romaji sent". Keys are QWERTY positions:
 // a bare letter is a tap, +a and -a press and release, @N moves the clock N ms,
-// and ! is Del (it shows [DEL] when there was no prefix to drop).
+// and ! is Del (it shows [DEL] when there was no prefix to drop). ~ is the
+// wait between the parts of a kana typed with more than one key.
 #include "naginata.h"
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +11,7 @@ static char out[512];
 void ng_send_romaji(const char *r){strcat(out,r);strcat(out," ");}
 void ng_ime(bool on){strcat(out,on?"[ON] ":"[OFF] ");}
 void ng_tap_esc(void){strcat(out,"[ESC] ");}
+void ng_wait_ms(uint16_t ms){(void)ms;strcat(out,"~ ");}
 static const char *K="qwertyuiopasdfghjkl;zxcvbnm,./";
 // Onishi letters on layer 0 by QWERTY position
 static const char *ON="qlu,.fwryp" "eiao-ktnsh" "xjcv/gdmzb";
@@ -33,53 +35,53 @@ static void run(const char *name,const char *sc,const char *want){
 int main(){
   ng_sequential=true;
   run("ko","w","ko ");
-  run("D same hand","dw","ltu ko ");
-  run("mi K","kw","mi ");
-  run("ha","kd","ha ");
-  run("ke","dk","ke ");
-  run("ra","dl","ra ");
-  run("ltu same","ds","ltu i ");
-  run("ltu K","kj","ltu nn ");
-  run("DD same","dds","hu ");
-  run("DD opp","ddj","ltu sa ");
-  run("KK same","kkj","sa ");
-  run("KK opp","kks","ltu hu ");
-  run("K then L","kl/","ltu gi ");
-  run("ga","lf","ga ");
-  run("ba","ld","ba ");
-  run("ge","lk","ge ");
-  run("bo","lr","bo ");
-  run("vu","lu","vu ");
-  run("be (o not voiced)","lg","be ");
-  run("L yo plain","lc","yo ");
-  run("pa","pd","pa ");
-  run("pi","ph","pi ");
+  run("D same hand","dw","ltu ~ ko ");
+  run("mi K","kw","m ~ i ");
+  run("ha","kd","h ~ a ");
+  run("ke","dk","k ~ e ");
+  run("ra","dl","r ~ a ");
+  run("ltu same","ds","ltu ~ i ");
+  run("ltu K","kj","ltu ~ nn ");
+  run("DD same","dds","h ~ u ");
+  run("DD opp","ddj","l ~ tu ~ sa ");
+  run("KK same","kkj","s ~ a ");
+  run("KK opp","kks","l ~ tu ~ hu ");
+  run("K then L","kl/","ltu g ~ i ");
+  run("ga","lf","g ~ a ");
+  run("ba","ld","b ~ a ");
+  run("ge","lk","g ~ e ");
+  run("bo","lr","b ~ o ");
+  run("vu","lu","v ~ u ");
+  run("be","lg","b ~ e ");
+  run("L yo plain","lc","y ~ o ");
+  run("pa","pd","p ~ a ");
+  run("pi","ph","p ~ i ");
   run("sha","iz","si xya ");
   run("nya exc","rz","ni ya ");
-  run("nya via L","rlz","ni xya ");
+  run("nya via L","rlz","ni x ~ ya ");
   run("nyo exc","rc","ni yo ");
   run("kyou","/g","ki xyou ");
   run("syuu","iu","si xyuu ");
   run("siu via L","ilu","si u ");
   run("sio via L","ilg","si o ");
-  run("gyo","l/c","gi xyo ");
-  run("pyo","phc","pi xyo ");
+  run("gyo","l/c","g ~ i xyo ");
+  run("pyo","phc","p ~ i xyo ");
   run("roll ka-i","+f +s -f -s","ka i ");
-  run("roll rev rel","+f +s -s -f","ka i ");
-  run("held prefix","+d +j -j -d","sa ");
-  run("held same","+d +s -s -d","ltu i ");
-  run("fi","p +y +s -y -s","fi ");
-  run("dhi","p +m +; +s -m -; -s","dhi ");
-  run("pu group1","p +s -s","pu ");
-  run("P no match","p +h +j -h -j","pi nn ");
+  run("roll rev rel","+f +s -s -f","ka ~ i ");
+  run("held prefix","+d +j -j -d","s ~ a ");
+  run("held same","+d +s -s -d","ltu ~ i ");
+  run("fi","p +y +s -y -s","f ~ i ");
+  run("dhi","p +m +; +s -m -; -s","d ~ h ~ i ");
+  run("pu group1","p +s -s","p ~ u ");
+  run("P no match","p +h +j -h -j","p ~ i ~ nn ");
   run("Del cancel","d!w","ko ");
   run("Del no prefix","w!","ko [DEL] ");
   run("Del held D","+d !-d w","ko ");
-  run("arigatou","kvolfau","a ri ga to u ");
-  run("gozaimasu","lwljsdm,","go za i ma su ");
+  run("arigatou","kvolfau","a ri g ~ a to u ");
+  run("gozaimasu","lwljsdm,","g ~ o z ~ a i m ~ a su ");
   run("touten","t",", ");
   run("ta","v","ta ");
-  run("ltu ta","dv","ltu ta ");
+  run("ltu ta","dv","ltu ~ ta ");
   printf("%d failures\n",fails);
   return fails != 0;
 }

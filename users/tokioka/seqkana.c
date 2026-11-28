@@ -10,6 +10,8 @@
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
 // - Del right after a prefix key drops the prefix.
+// - A kana typed with n keys is sent as n parts of its romaji, ng_stroke_gap_ms
+//   apart, so a typing tester that counts signals 10 ms apart counts the keys.
 //
 // Keys are taken in the order they went down, and each one is decided when it
 // or a key pressed after it is released. A tap-hold key held as a modifier
@@ -79,6 +81,11 @@ static prefix_t prefix;
 // The kana sent last, or NULL after a key outside the engine.
 static const char *last;
 
+uint8_t ng_stroke_gap_ms = 15;
+// Keys typed for the kana not sent yet, and whether this call sent anything.
+static uint8_t strokes;
+static bool    sent_in_call;
+
 static bool is_left(uint8_t p) { return p % 10 < 5; }
 
 static const char *find_pair(const pair_t *t, size_t n, const char *k) {
@@ -109,9 +116,31 @@ static bool youon_exception(const char *y) {
     return !strcmp(y, "yo") && !strcmp(last, "ni");
 }
 
+// The romaji goes out in as many parts as the keys typed for it: one letter
+// each, and the rest with the last part.
 static void send(const char *r, const char *kana) {
-    ng_send_romaji(r);
-    last = kana;
+    size_t len = strlen(r), parts = strokes ? strokes : 1;
+    if (parts > len) parts = len;
+    for (size_t i = 0; i < parts; i++) {
+        char   buf[8];
+        size_t n = i + 1 < parts ? 1 : len - i;
+        if (n > sizeof(buf) - 1) n = sizeof(buf) - 1;
+        memcpy(buf, r + i, n);
+        buf[n] = 0;
+        if (sent_in_call && ng_stroke_gap_ms) ng_wait_ms(ng_stroke_gap_ms);
+        ng_send_romaji(buf);
+        sent_in_call = true;
+    }
+    strokes = 0;
+    last    = kana;
+}
+
+// っ before the kana of the key k, each with its own key: the prefix keys
+// before k go with っ.
+static void send_ltu(void) {
+    strokes--;
+    send("ltu", NULL);
+    strokes = 1;
 }
 
 static void send_small_y(const char *y) {
@@ -141,7 +170,16 @@ static void send_kana(const char *k) {
 
 static bool is_prefix(uint8_t p) { return p == P_D || p == P_K || p == P_L || p == P_P; }
 
+static void dispatch(uint8_t k);
+
 static void step(uint8_t k) {
+    strokes++;
+    dispatch(k);
+    // A key that gave nothing, such as P and then a key with no half dakuten.
+    if (prefix == PRE_NONE) strokes = 0;
+}
+
+static void dispatch(uint8_t k) {
     prefix_t p = prefix;
     prefix     = PRE_NONE;
     switch (p) {
@@ -160,8 +198,8 @@ static void step(uint8_t k) {
                 return;
             }
             if (is_left(k) == is_left(s)) {
-                send("ltu", NULL);
-                step(k);
+                send_ltu();
+                dispatch(k);
                 return;
             }
             send_kana(back_face[k]);
@@ -170,10 +208,10 @@ static void step(uint8_t k) {
         case PRE_DD:
         case PRE_KK:
             if (k == P_P) {
-                step(k);
+                dispatch(k);
                 return;
             }
-            if (is_left(k) != (p == PRE_DD)) send("ltu", NULL);
+            if (is_left(k) != (p == PRE_DD)) send_ltu();
             send_kana(back_face[k]);
             return;
         case PRE_L: {
@@ -250,6 +288,7 @@ static void resolve_group(void) {
             sort_letters(s, n);
             if (strcmp(s, letters)) continue;
             prefix = PRE_NONE;
+            strokes += n;
             while (qlen) queue_drop(0);
             send(gairai[g], NULL);
             return;
@@ -292,21 +331,26 @@ void sq_release(uint8_t pos, uint16_t time) {
     (void)time;
     if (pos >= NG_KEYS) return;
     keys[pos].down = false;
+    sent_in_call   = false;
     if (keys[pos].live) run_queue(pos);
 }
 
 void sq_flush(uint16_t time) {
     (void)time;
+    sent_in_call = false;
     run_queue(NG_KEYS);
-    prefix = PRE_NONE;
-    last   = NULL;
+    prefix  = PRE_NONE;
+    strokes = 0;
+    last    = NULL;
 }
 
 bool sq_drop_prefix(uint16_t time) {
     (void)time;
+    sent_in_call = false;
     run_queue(NG_KEYS);
     bool had = prefix != PRE_NONE;
     prefix   = PRE_NONE;
+    strokes  = 0;
     last     = NULL;
     return had;
 }
