@@ -68,14 +68,6 @@ void ng_tap_esc(void) { tap_code(KC_ESC); }
 
 void ng_wait_ms(uint16_t ms) { wait_ms(ms); }
 
-static keypos_t key_at[NG_KEYS];
-
-char ng_letter(uint8_t pos) {
-    if (pos >= NG_KEYS) return 0;
-    uint16_t kc = keycode_at_keymap_location(0, key_at[pos].row, key_at[pos].col);
-    if (IS_QK_MOD_TAP(kc)) kc = QK_MOD_TAP_GET_TAP_KEYCODE(kc);
-    return kc >= KC_A && kc <= KC_Z ? (char)('a' + (kc - KC_A)) : 0;
-}
 
 void eeconfig_init_user(void) {
     cfg.raw = 0;
@@ -91,7 +83,8 @@ void kana_mode_init(void) {
 // Tap-hold keys held as kana when a key outside the engine comes, such as Tab
 // for Ctrl+Shift+Tab with hi and ko held, turn into their modifiers. Kana are
 // decided on release, so Space or Enter after a roll does not meet a held key.
-static uint8_t retro_mods[NG_KEYS];
+static keypos_t key_at[NG_KEYS];
+static uint8_t  retro_mods[NG_KEYS];
 
 #define TAKE_MODS_WAIT_MS 1
 
@@ -358,6 +351,13 @@ static void ime_resync_track(uint16_t keycode, keyrecord_t *record) {
 bool kana_mode_process_record(uint16_t keycode, keyrecord_t *record, int8_t pos) {
     uint16_t time    = record->event.time;
     bool     pressed = record->event.pressed;
+
+    // ! and ? of the sequential layout follow the combo term set in Vial.
+#ifdef QMK_SETTINGS
+    ng_mark_gap_ms = QS.combo_term;
+#elif defined(COMBO_TERM)
+    ng_mark_gap_ms = COMBO_TERM;
+#endif
 
     switch (keycode) {
         case KC_LNG1:

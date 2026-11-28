@@ -6,7 +6,12 @@
 //   and the back face of a key of the other hand.
 // - L and then a key gives the dakuten of whichever kana on the key can take one.
 // - P and then a key gives the half dakuten. P and then keys pressed together
-//   give the gairaion spelt by the romaji letters on those keys in layer 0.
+//   give the gairaion spelt by the letters of those keys in TK on-choku.
+// - D and then P is the toku key: then H, J, K or L gives an arrow, T and Y
+//   the leaders, and [ or ] from another layer z[ or z]. L and then P makes
+//   [ and ] s[ and s]. D and then Y gives ・, and D and then N gives っ alone.
+// - , and . pressed within ng_mark_gap_ms give !, and . and / give ?, as in
+//   TK on-choku.
 // - や, ゆ and よ right after a kana of the i row are small, and う and お
 //   are ゅう and ょう. L before them gives the other one.
 // - Del right after a prefix key drops the prefix.
@@ -37,9 +42,9 @@ static const char *const front_face[NG_KEYS] = {
     "ya", "ku", "yo", "ta", "yu", "tu", "te", "su", "ru", "ki",
 };
 static const char *const back_face[NG_KEYS] = {
-    NULL, "mi", "se", "ho", NULL, NULL, "wa", "ro", "ti", NULL,
+    NULL, "mi", "se", "ho", NULL, "/",  "wa", "ro", "ti", NULL,
     "mu", "hu", "ha", "mo", "he", "hi", "sa", "ke", "ra", "so",
-    "nu", "e",  "re", "a",  NULL, NULL, "ma", "wo", "me", "ne",
+    "nu", "e",  "re", "a",  NULL, "ltu", "ma", "wo", "me", "ne",
 };
 
 typedef struct {
@@ -57,6 +62,13 @@ static const pair_t handakuten[] = {
     {"ha", "pa"}, {"hi", "pi"}, {"hu", "pu"}, {"he", "pe"}, {"ho", "po"},
 };
 
+// The letters of TK on-choku, which is the Onishi layout, by key position.
+static const char onchoku_letter[NG_KEYS + 1] = "qlu,.fwryp" "eiao-ktnsh" "zxcv;gdmjb";
+static char letter(uint8_t p) {
+    char c = onchoku_letter[p];
+    return c >= 'a' && c <= 'z' ? c : 0;
+}
+
 // Gairaion after P, by the letters of the keys pressed together.
 static const char *const gairai[] = {
     "fa",  "fi",  "fe",  "fo",  "fyu", "va",  "vi",  "ve",  "vo",  "thi",
@@ -68,7 +80,25 @@ static const char *const gairai[] = {
 // The kana of the i row, after which や, ゆ, よ, う and お change.
 static const char *const i_row[] = {"ki", "si", "ti", "ni", "hi", "mi", "ri", "gi", "zi", "di", "bi", "pi"};
 
-typedef enum { PRE_NONE, PRE_D, PRE_K, PRE_DD, PRE_KK, PRE_L, PRE_P } prefix_t;
+typedef enum { PRE_NONE, PRE_D, PRE_K, PRE_DD, PRE_KK, PRE_L, PRE_P, PRE_TOKU } prefix_t;
+
+// The letter to put before [ or ] typed next: z after the toku key, s after
+// L and then P, or 0.
+static char bracket_prefix;
+
+// The romaji that tokioka's own romaji table turns into the arrows and the
+// leaders, for the key after the toku key.
+static const char *toku_romaji(uint8_t p) {
+    switch (p) {
+        case P_H: return "xk"; // left arrow
+        case P_J: return "xt"; // down arrow
+        case P_K: return "xn"; // up arrow
+        case P_L: return "xs"; // right arrow
+        case P_T: return "z,"; // two-dot leader
+        case P_Y: return "z."; // three-dot leader
+        default: return NULL;
+    }
+}
 
 typedef struct {
     uint16_t t_down;
@@ -187,6 +217,7 @@ static void drop_strokes(uint8_t extra) {
 
 static void step(uint8_t k) {
     strokes++;
+    bracket_prefix = 0;
     dispatch(k);
     // A key that gave nothing, such as P and then a key with no half dakuten,
     // goes to the kana sent next.
@@ -216,7 +247,21 @@ static void dispatch(uint8_t k) {
                 dispatch(k);
                 return;
             }
+            if (k == P_P) {
+                prefix         = PRE_TOKU;
+                bracket_prefix = 'z';
+                return;
+            }
             send_kana(back_face[k]);
+            return;
+        }
+        case PRE_TOKU: {
+            const char *r = toku_romaji(k);
+            if (r) {
+                send(r, NULL);
+            } else {
+                dispatch(k);
+            }
             return;
         }
         case PRE_DD:
@@ -230,6 +275,10 @@ static void dispatch(uint8_t k) {
             return;
         case PRE_L: {
             const char *f = front_face[k], *b = back_face[k];
+            if (k == P_P) {
+                bracket_prefix = 's';
+                return;
+            }
             if (after_i_row()) {
                 const char *y = is_y(f) ? f : is_y(b) ? b : NULL;
                 if (y) {
@@ -290,7 +339,7 @@ static void sort_letters(char *s, uint8_t n) {
 static void resolve_group(void) {
     char    letters[8];
     uint8_t n = 0;
-    for (uint8_t i = 0; i < qlen && n < sizeof(letters) - 1; i++) letters[n++] = ng_letter(queue[i]);
+    for (uint8_t i = 0; i < qlen && n < sizeof(letters) - 1; i++) letters[n++] = letter(queue[i]);
     letters[n] = 0;
     sort_letters(letters, n);
     if (n >= 2) {
@@ -315,12 +364,35 @@ static void resolve_group(void) {
     }
 }
 
+uint16_t ng_mark_gap_ms = 50;
+
+// ! or ? for keys a and b that went down within ng_mark_gap_ms of each other.
+static const char *mark_of(uint8_t a, uint8_t b) {
+    uint16_t d = keys[a].t_down - keys[b].t_down;
+    if ((uint16_t)(keys[b].t_down - keys[a].t_down) < d) d = keys[b].t_down - keys[a].t_down;
+    if (d > ng_mark_gap_ms) return NULL;
+    if ((a == P_CM && b == P_DT) || (a == P_DT && b == P_CM)) return "!";
+    if ((a == P_DT && b == P_SL) || (a == P_SL && b == P_DT)) return "?";
+    return NULL;
+}
+
 // Decide the queue up to and including pos, or all of it when pos is NG_KEYS.
 static void run_queue(uint8_t pos) {
     while (qlen) {
         if (prefix == PRE_P) {
             resolve_group();
             return;
+        }
+        const char *mark = qlen >= 2 && prefix == PRE_NONE ? mark_of(queue[0], queue[1]) : NULL;
+        if (mark) {
+            uint8_t a = queue[0], b = queue[1];
+            queue_drop(0);
+            queue_drop(0);
+            bracket_prefix = 0;
+            strokes += 2;
+            send(mark, NULL);
+            if (a == pos || b == pos) return;
+            continue;
         }
         uint8_t k = queue[0];
         queue_drop(0);
@@ -379,7 +451,8 @@ bool sq_can_chord(uint8_t a, uint8_t b) { return a < NG_KEYS && b < NG_KEYS && a
 
 bool sq_mark_chord(uint8_t a, uint8_t b, uint16_t time) {
     (void)time;
-    return sq_can_chord(a, b) && keys[a].live && keys[b].live;
+    if (a >= NG_KEYS || b >= NG_KEYS || !keys[a].live || !keys[b].live) return false;
+    return sq_can_chord(a, b) || mark_of(a, b);
 }
 
 bool sq_down(uint8_t pos) { return pos < NG_KEYS && keys[pos].down; }
@@ -403,4 +476,12 @@ void sq_reset(void) {
     strokes = 0;
     carry   = 0;
     last    = NULL;
+    bracket_prefix = 0;
+}
+
+char sq_take_bracket_prefix(void) {
+    char c         = bracket_prefix;
+    bracket_prefix = 0;
+    if (prefix == PRE_TOKU) prefix = PRE_NONE;
+    return c;
 }

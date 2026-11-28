@@ -14,9 +14,6 @@ void ng_ime(bool on){strcat(out,on?"[ON] ":"[OFF] ");}
 void ng_tap_esc(void){strcat(out,"[ESC] ");}
 void ng_wait_ms(uint16_t ms){(void)ms;strcat(out,"~ ");}
 static const char *K="qwertyuiopasdfghjkl;zxcvbnm,./";
-// Onishi letters on layer 0 by QWERTY position
-static const char *ON="qlu,.fwryp" "eiao-ktnsh" "xjcv/gdmzb";
-char ng_letter(uint8_t p){char c=ON[p];return c>='a'&&c<='z'?c:0;}
 static int pos(char c){const char*p=strchr(K,c);return p?p-K:-1;}
 static int fails;
 
@@ -74,6 +71,7 @@ int main(){
   run("held same","+d +s -s -d","ltu ~ i ");
   run("fi","p +y +s -y -s","f ~ i ");
   run("dhi","p +m +; +s -m -; -s","d ~ h ~ i ");
+  run("je onchoku","p +. +a -. -a","j ~ e ");
   run("pu group1","p +s -s","p ~ u ");
   run("P no match","p +h +j -h -j","p ~ i ~ nn ");
   run("Del cancel","d!w","k ~ o ");
@@ -83,10 +81,27 @@ int main(){
   run("arigatou","kvolfau","a r ~ i g ~ a to u ");
   run("gozaimasu","lwljsdm,","g ~ o z ~ a i m ~ a su ");
   run("touten","t",", ");
+  run("exclamation","+, @10 +. @40 -, -.","! ");
+  run("question","+. @10 +/ @40 -/ -.","? ");
+  run("suru roll","+, @60 +. @40 -, -.","su ru ");
+  run("suru apart","+, @40 -, @20 +. @40 -.","su ru ");
+  run("ltu alone","dn","l ~ tu ");
+  run("nakaguro","dy","/ ");
+  run("ltu maru","ky","ltu ~ . ");
+  run("toku arrow","dph","x ~ k ");
+  run("toku arrow K","dpk","x ~ n ");
+  run("toku leader","dpt","z ~ , ");
+  run("toku other","dpw","k ~ o ");
+  run("ltu pa","kpd","ltu p ~ a ");
   run("ta","v","ta ");
   run("ltu ta","dv","ltu ~ ta ");
   run("a carried","kv f","a k ~ a ");
   run("e a carried","kx kv ws","e a k ~ o i ");
+  /* [ after the toku key and after L then P */
+  sq_reset(); out[0]=0; ng_press(12,1); ng_release(12,2); ng_press(9,3); ng_release(9,4);
+  { int c=ng_take_bracket_prefix(); printf("%s toku bracket %c\n", c=='z'?"ok":"NG", c?c:'-'); fails+=c!='z'; }
+  sq_reset(); ng_press(18,1); ng_release(18,2); ng_press(9,3); ng_release(9,4);
+  { int c=ng_take_bracket_prefix(); printf("%s lenticular %c\n", c=='s'?"ok":"NG", c?c:'-'); fails+=c!='s'; }
   printf("%d failures\n",fails);
   return fails != 0;
 }

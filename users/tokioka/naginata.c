@@ -627,7 +627,7 @@ void ng_flush(uint16_t time) {
 }
 
 char ng_take_bracket_prefix(void) {
-    if (ng_sequential) return 0;
+    if (ng_sequential) return sq_take_bracket_prefix();
 
     char c         = bracket_prefix;
     bracket_prefix = 0;
